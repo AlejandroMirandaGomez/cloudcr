@@ -1,0 +1,9 @@
+# Envia todo al front controller. Requiere mod_rewrite habilitado en Apache.
+RewriteEngine On
+
+# Si el archivo existe fisicamente, se sirve tal cual.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^ index.php [QSA,L]
