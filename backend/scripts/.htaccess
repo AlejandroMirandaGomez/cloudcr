@@ -1,0 +1,3 @@
+# Ningun archivo de esta carpeta debe servirse por HTTP.
+# Solo el contenido de public/ es publico.
+Require all denied

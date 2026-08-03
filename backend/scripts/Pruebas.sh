@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prueba de humo del API. Requiere el servidor levantado y la base con Script_V2.sql.
-#   php -S localhost:8000 -t public
-#   bash docs/pruebas.sh
+#   php -S localhost:8000 -t backend/public
+#   bash backend/scripts/Pruebas.sh
 set -u
 BASE="${1:-http://localhost:8000}"
 J="Content-Type: application/json"
