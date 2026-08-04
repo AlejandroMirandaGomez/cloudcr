@@ -29,7 +29,7 @@ function CIDChip({ value }) {
 const columns = [
   { accessorKey: 'norma', header: 'Norma', size: 90 },
   { accessorKey: 'nombre', header: 'Nombre', size: 240 },
-  { accessorKey: 'enunciado', header: 'Enunciado', size: 420 },
+  { accessorKey: 'descripcion', header: 'Descripción', size: 420 },
   {
     id: 'tipo',
     header: 'Tipo',

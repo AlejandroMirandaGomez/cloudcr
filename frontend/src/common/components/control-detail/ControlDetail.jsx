@@ -69,6 +69,31 @@ function BulletSection({ title, children }) {
   );
 }
 
+function QuestionsSection({ title, items }) {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <Box>
+      <Divider sx={{ my: 3 }} />
+      <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>
+        {title}
+      </Typography>
+      <Stack spacing={1.5}>
+        {items.map((pregunta, i) => (
+          <Stack key={i} direction="row" spacing={1.5} sx={{ alignItems: 'flex-start' }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 20 }}>
+              {i + 1}.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {pregunta}
+            </Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
+  );
+}
+
 function BackButton({ to, label }) {
   return (
     <Button
@@ -142,6 +167,8 @@ export default function ControlDetail({ control, codigo, backTo, backLabel }) {
           <BulletSection title="Guía">{control.guia}</BulletSection>
           <BulletSection title="Otra información">{control.otraInformacion}</BulletSection>
         </Stack>
+
+        <QuestionsSection title="Preguntas" items={control.preguntas} />
       </Paper>
     </Box>
   );
