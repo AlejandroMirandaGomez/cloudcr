@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, Chip, Stack } from '@mui/material';
+import { Box, Button, Chip, IconButton, Stack, Tooltip } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import LaunchIcon from '@mui/icons-material/Launch';
 import Table from '../../../common/components/basic-table/Table.jsx';
 import AuditInfoHeader from '../components/audit-info-header/AuditInfoHeader.jsx';
 import controles from '../../../common/data/controles-iso27002.json';
@@ -70,6 +71,12 @@ const columns = [
   },
 ];
 
+const tableOptions = {
+  displayColumnDefOptions: {
+    'mrt-row-actions': { header: 'Cuestionario', size: 150 },
+  },
+};
+
 export default function InternalControlQuestionnairePage() {
   const cols = useMemo(() => columns, []);
 
@@ -94,6 +101,20 @@ export default function InternalControlQuestionnairePage() {
         columns={cols}
         data={controles}
         storageKey="internal-control-questionnaire"
+        enableRowActions
+        renderRowActions={({ row }) => (
+          <Tooltip title="Realizar el cuestionario">
+            <IconButton
+              component={RouterLink}
+              to={`/internal-control-questionnaire/${row.original.codigo}/cuestionario`}
+              size="small"
+              aria-label="Realizar el cuestionario"
+            >
+              <LaunchIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+        tableOptions={tableOptions}
       />
     </Box>
   );
