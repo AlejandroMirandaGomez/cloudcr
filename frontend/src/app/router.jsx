@@ -10,6 +10,9 @@ const InternalControlQuestionnairePage = lazy(() =>
 const ControlDetailPage = lazy(() =>
   import('../modules/internal-control-questionnaire/pages/ControlDetailPage.jsx'),
 );
+const ControlQuestionnairePage = lazy(() =>
+  import('../modules/internal-control-questionnaire/pages/ControlQuestionnairePage.jsx'),
+);
 const ControlListPage = lazy(() => import('../modules/control-list/pages/ControlListPage.jsx'));
 const ControlListDetailPage = lazy(() =>
   import('../modules/control-list/pages/ControlDetailPage.jsx'),
@@ -31,6 +34,10 @@ export const router = createBrowserRouter([
       {
         path: 'internal-control-questionnaire/:codigo',
         element: <ControlDetailPage />,
+      },
+      {
+        path: 'internal-control-questionnaire/:codigo/cuestionario',
+        element: <ControlQuestionnairePage />,
       },
       {
         path: 'control-list',

@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom';
 import ControlDetail from '../../../common/components/control-detail/ControlDetail.jsx';
 import controles from '../../../common/data/controles-iso27002.json';
 
-const BACK_TO = '/internal-control-questionnaire';
+const LISTA_CUESTIONARIO = '/internal-control-questionnaire';
 
 export default function ControlDetailPage() {
   const { codigo } = useParams();
@@ -12,7 +12,7 @@ export default function ControlDetailPage() {
     <ControlDetail
       control={control}
       codigo={codigo}
-      backTo={BACK_TO}
+      backTo={control ? `${LISTA_CUESTIONARIO}/${codigo}/cuestionario` : LISTA_CUESTIONARIO}
       backLabel="Volver al cuestionario"
     />
   );
