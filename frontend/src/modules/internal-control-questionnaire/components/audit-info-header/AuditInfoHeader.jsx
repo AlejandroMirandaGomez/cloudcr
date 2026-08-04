@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import { AUDITORIA } from '../data/auditoria.js';
+import { AUDITORIA } from '../../data/auditoria.js';
 
 const SURFACE = 'hsl(220, 20%, 99%)';
 const DIVIDER = 'rgba(0, 0, 0, 0.12)';
