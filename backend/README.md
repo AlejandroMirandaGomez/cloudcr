@@ -31,11 +31,18 @@ Como `composer.json` no declara dependencias, `dump-autoload` basta y no necesit
 CREATE DATABASE cloud_cr;
 ```
 
-Luego, conectado a `cloud_cr`, ejecutar el script de esquema y opcionalmente el de datos
-de prueba.
+Luego, conectado a `cloud_cr`, ejecutar los dos scripts de `database/` en este orden:
 
-> **Pendiente:** el script SQL todavia no esta versionado en el repositorio. Su lugar es
-> la carpeta `database/` de la raiz, y es ademas el entregable 11 del curso.
+```bash
+psql -U postgres -d cloud_cr -f database/Modelo_Relacional.sql
+```
+
+```bash
+psql -U postgres -d cloud_cr -f database/Datos_Iniciales.sql
+```
+
+El primero crea el esquema y los catalogos fijos de la norma; el segundo carga los controles
+seleccionados con sus preguntas.
 
 El backend depende de estas restricciones `UNIQUE`; sin ellas no funciona correctamente:
 
@@ -43,9 +50,9 @@ El backend depende de estas restricciones `UNIQUE`; sin ellas no funciona correc
 |---|---|
 | `Organizaciones.nombre` | Devolver 409 en vez de 500 ante un duplicado |
 | `Normas.nombre` | Idem |
-| `Controles.nombre_control` | Idem |
-| `Controles_Normas (control_id, norma_id)` | `ON CONFLICT DO NOTHING` al vincular normas |
-| `Respuestas_Controles (cuestionario_id, control_id)` | El `PUT` idempotente de respuestas se apoya en `ON CONFLICT DO UPDATE`; sin esta restriccion falla |
+| `Controles (norma_id, codigo)` | Idem, y es la clave natural del control |
+| `Preguntas (control_id, orden)` | Evita dos preguntas con el mismo orden en un control |
+| `Respuestas (cuestionario_id, pregunta_id)` | El `PUT` idempotente de respuestas se apoya en `ON CONFLICT DO UPDATE`; sin esta restriccion falla |
 
 ### 3. Configurar la conexion (opcional)
 
@@ -125,19 +132,19 @@ este montado el proyecto.
 **Implementado**
 
 - CRUD de organizaciones, evaluadores, normas, controles y cuestionarios
-- Catalogo de controles filtrable por norma, tipo, dimension (C/I/D), nivel P/S y texto
-- Registro de respuestas Si / No / N-A por control, con guardado parcial e idempotente,
+- Autenticacion por correo y contrasena para evaluadores y organizaciones
+- Catalogo de controles con codigo, dominio de la norma, objetivo, peso, atributos de
+  ISO/IEC 27002:2022 y sus preguntas; filtrable por norma, dominio, tipo, dimension y texto
+- Registro de respuestas Si / No / N/A **por pregunta**, con guardado parcial e idempotente
   y guardado por lotes transaccional
-- Reportes: resumen de cumplimiento, mapa de calor por dimension con desglose P/S,
-  hallazgos (controles en "No") e historial de cumplimiento por organizacion
+- Reportes: resumen de cumplimiento, mapa de calor por dimension con desglose
+  Primario / Secundario, hallazgos (preguntas en "No") e historial por organizacion
 
 **No implementado** (requiere cambios en el modelo de datos)
 
-- Autenticacion de usuarios y manejo de sesiones — el `evaluador_id` viaja en el cuerpo
-- Preguntas por control: hoy se responde a nivel de control, no de pregunta
 - Nivel de madurez 0–5; solo se exponen los insumos `documentado`, `repetible` y `evidencia`
-- Peso o importancia del control, y por lo tanto el calculo de exposicion al riesgo C/I/D
-- Dominios de la norma, y los reportes por dominio que dependen de ellos
+- Exposicion al riesgo C/I/D: el `peso` ya existe, falta definir la formula
+- Area evaluada y Administrador de Bases de Datos por auditoria
 - Observaciones, comentarios y evidencias en texto
 - Estado del cuestionario (en progreso / finalizado)
 

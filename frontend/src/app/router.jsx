@@ -56,12 +56,12 @@ export const router = createBrowserRouter([
         element: <Suspense fallback={null}><ControlListPage /></Suspense>,
       },
       {
-        path: 'control-list/:codigo',
+        path: 'control-list/:id',
         element: <Suspense fallback={null}><ControlListDetailPage /></Suspense>,
       },
       // Rutas protegidas — requieren login
       {
-        path: 'control-list/:codigo/editar',
+        path: 'control-list/:id/editar',
         element: <Protected allowedRoles={['evaluador']}><ControlEditPage /></Protected>,
       },
       {
@@ -77,11 +77,11 @@ export const router = createBrowserRouter([
         element: <Protected allowedRoles={['evaluador']}><InternalControlQuestionnairePage /></Protected>,
       },
       {
-        path: 'internal-control-questionnaire/:codigo',
+        path: 'internal-control-questionnaire/:id',
         element: <Protected allowedRoles={['evaluador']}><ControlDetailPage /></Protected>,
       },
       {
-        path: 'internal-control-questionnaire/:codigo/cuestionario',
+        path: 'internal-control-questionnaire/:id/cuestionario',
         element: <Protected allowedRoles={['evaluador']}><ControlQuestionnairePage /></Protected>,
       },
     ],

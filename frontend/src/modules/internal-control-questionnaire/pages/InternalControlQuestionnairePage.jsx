@@ -27,8 +27,11 @@ function CIDChip({ value }) {
   );
 }
 
+const COLUMNAS_OCULTAS = { codigo: false, tipo: false };
+
 const columns = [
   { accessorKey: 'norma', header: 'Norma', size: 90 },
+  { accessorKey: 'codigo', header: 'Código', size: 90 },
   { accessorKey: 'nombre', header: 'Nombre', size: 240 },
   { accessorKey: 'descripcion', header: 'Descripción', size: 420 },
   {
@@ -112,12 +115,13 @@ export default function InternalControlQuestionnairePage() {
           columns={cols}
           data={controles}
           storageKey="internal-control-questionnaire"
+          defaultColumnVisibility={COLUMNAS_OCULTAS}
           enableRowActions
           renderRowActions={({ row }) => (
             <Tooltip title="Realizar el cuestionario">
               <IconButton
                 component={RouterLink}
-                to={`/internal-control-questionnaire/${row.original.codigo}/cuestionario`}
+                to={`/internal-control-questionnaire/${row.original.id}/cuestionario`}
                 size="small"
                 aria-label="Realizar el cuestionario"
               >

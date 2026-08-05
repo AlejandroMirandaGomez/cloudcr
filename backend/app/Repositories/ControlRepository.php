@@ -6,88 +6,195 @@ namespace CloudCR\Repositories;
 
 use CloudCR\Core\Database;
 use CloudCR\Core\HttpException;
-use PDO;
 
-/** HU-005, HU-010, HU-012. Tablas Controles y Controles_Normas. */
 final class ControlRepository extends BaseRepository
 {
-    /** Columnas de dimension permitidas en los filtros (evita inyeccion por nombre de columna). */
     private const DIMENSIONES = ['integridad', 'disponibilidad', 'confidencialidad'];
 
-    /**
-     * HU-012: catalogo con filtros opcionales por norma, tipo y dimension.
-     *
-     * @param array{norma_id?:int|null,tipo?:string|null,dimension?:string|null,nivel?:string|null,buscar?:string|null} $filtros
-     * @return list<array<string,mixed>>
-     */
+    private const ATRIBUTOS = [
+        'tipos'              => ['Controles_Tipos', 'tipo_id', 'Tipos_Control'],
+        'conceptos'          => ['Controles_Conceptos', 'concepto_id', 'Conceptos_Ciberseguridad'],
+        'dominios_seguridad' => ['Controles_Dominios_Seguridad', 'dominio_seguridad_id', 'Dominios_Seguridad'],
+        'capacidades'        => ['Controles_Capacidades', 'capacidad_id', 'Capacidades_Operativas'],
+    ];
+
+    private const COLUMNAS = [
+        'norma_id', 'dominio_norma_id', 'codigo', 'nombre', 'proposito', 'descripcion',
+        'peso', 'confidencialidad', 'integridad', 'disponibilidad', 'guia', 'otra_informacion',
+    ];
+
     public function listar(array $filtros, int $limit, int $offset): array
     {
         [$where, $params] = $this->construirWhere($filtros);
 
-        $sql = 'SELECT c.id,
-                       c.tipo_control,
-                       c.nombre_control,
-                       c.detalle,
-                       c.integridad,
-                       c.disponibilidad,
-                       c.confidencialidad,
-                       COALESCE(
-                           JSON_AGG(JSON_BUILD_OBJECT(\'id\', n.id, \'nombre\', n.nombre) ORDER BY n.nombre)
-                           FILTER (WHERE n.id IS NOT NULL),
-                           \'[]\'
-                       ) AS normas
-                  FROM Controles c
-                  LEFT JOIN Controles_Normas cn ON cn.control_id = c.id
-                  LEFT JOIN Normas n ON n.id = cn.norma_id'
-            . $where
-            . ' GROUP BY c.id
-                ORDER BY c.nombre_control
-                LIMIT :limit OFFSET :offset';
-
         $params['limit']  = $limit;
         $params['offset'] = $offset;
 
-        return array_map([$this, 'hidratar'], $this->run($sql, $params)->fetchAll());
+        return array_map(
+            [$this, 'hidratar'],
+            $this->run(
+                $this->seleccion() . $where
+                . ' ORDER BY dn.clausula, LENGTH(c.codigo), c.codigo
+                    LIMIT :limit OFFSET :offset',
+                $params
+            )->fetchAll()
+        );
     }
 
-    /** @param array<string,mixed> $filtros */
     public function contar(array $filtros): int
     {
         [$where, $params] = $this->construirWhere($filtros);
 
-        $sql = 'SELECT COUNT(DISTINCT c.id)
-                  FROM Controles c
-                  LEFT JOIN Controles_Normas cn ON cn.control_id = c.id
-                  LEFT JOIN Normas n ON n.id = cn.norma_id' . $where;
-
-        return (int) $this->run($sql, $params)->fetchColumn();
+        return (int) $this->run(
+            'SELECT COUNT(*)
+               FROM Controles c
+               JOIN Normas n ON n.id = c.norma_id
+               JOIN Dominios_Norma dn ON dn.id = c.dominio_norma_id' . $where,
+            $params
+        )->fetchColumn();
     }
 
-    /**
-     * @param array<string,mixed> $filtros
-     * @return array{0:string,1:array<string,mixed>}
-     */
+    public function buscarPorId(int $id): array
+    {
+        $fila = $this->run($this->seleccion() . ' WHERE c.id = :id', ['id' => $id])->fetch();
+
+        if ($fila === false) {
+            throw HttpException::notFound('el control', $id);
+        }
+
+        return $this->hidratar($fila);
+    }
+
+    public function crear(array $datos, array $atributos, ?array $preguntas): array
+    {
+        return Database::transaction(function () use ($datos, $atributos, $preguntas): array {
+            $columnas   = implode(', ', self::COLUMNAS);
+            $marcadores = implode(', ', array_map([$this, 'marcador'], self::COLUMNAS));
+
+            $id = (int) $this->run(
+                "INSERT INTO Controles ($columnas) VALUES ($marcadores) RETURNING id",
+                $datos
+            )->fetchColumn();
+
+            $this->reemplazarAtributos($id, $atributos);
+            $this->sincronizarPreguntas($id, $preguntas);
+
+            return $this->buscarPorId($id);
+        });
+    }
+
+    public function actualizar(int $id, array $campos, array $atributos, ?array $preguntas): array
+    {
+        $this->assertExists('Controles', $id, 'el control');
+
+        return Database::transaction(function () use ($id, $campos, $atributos, $preguntas): array {
+            if ($campos !== []) {
+                $asignaciones = [];
+                foreach (array_keys($campos) as $columna) {
+                    $asignaciones[] = $columna . ' = ' . $this->marcador($columna);
+                }
+
+                $this->run(
+                    'UPDATE Controles SET ' . implode(', ', $asignaciones) . ' WHERE id = :id',
+                    $campos + ['id' => $id]
+                );
+            }
+
+            $this->reemplazarAtributos($id, $atributos);
+            $this->sincronizarPreguntas($id, $preguntas);
+
+            return $this->buscarPorId($id);
+        });
+    }
+
+    public function eliminar(int $id): void
+    {
+        $this->assertExists('Controles', $id, 'el control');
+
+        $usos = (int) $this->run(
+            'SELECT COUNT(*)
+               FROM Respuestas r
+               JOIN Preguntas p ON p.id = r.pregunta_id
+              WHERE p.control_id = :id',
+            ['id' => $id]
+        )->fetchColumn();
+
+        if ($usos > 0) {
+            throw HttpException::conflicto(sprintf(
+                'El control tiene %d respuesta(s) registradas en cuestionarios y no puede eliminarse sin perder historial.',
+                $usos
+            ));
+        }
+
+        $this->run('DELETE FROM Controles WHERE id = :id', ['id' => $id]);
+    }
+
+    private function seleccion(): string
+    {
+        $agregados = [];
+        foreach (self::ATRIBUTOS as $clave => [$puente, $columna, $catalogo]) {
+            $agregados[] = sprintf(
+                "COALESCE((SELECT JSON_AGG(JSON_BUILD_OBJECT('id', x.id, 'nombre', x.nombre) ORDER BY x.id)
+                             FROM %s pu JOIN %s x ON x.id = pu.%s
+                            WHERE pu.control_id = c.id), '[]') AS %s",
+                $puente,
+                $catalogo,
+                $columna,
+                $clave
+            );
+        }
+
+        return 'SELECT c.id,
+                       c.codigo,
+                       c.nombre,
+                       c.proposito,
+                       c.descripcion,
+                       c.peso,
+                       c.confidencialidad,
+                       c.integridad,
+                       c.disponibilidad,
+                       c.guia,
+                       c.otra_informacion,
+                       c.norma_id,
+                       n.nombre AS norma,
+                       c.dominio_norma_id,
+                       dn.clausula,
+                       dn.nombre AS dominio_norma,
+                       ' . implode(",\n                       ", $agregados) . ",
+                       COALESCE((SELECT JSON_AGG(JSON_BUILD_OBJECT('id', p.id, 'orden', p.orden, 'texto', p.texto)
+                                                 ORDER BY p.orden)
+                                   FROM Preguntas p
+                                  WHERE p.control_id = c.id), '[]') AS preguntas
+                  FROM Controles c
+                  JOIN Normas n ON n.id = c.norma_id
+                  JOIN Dominios_Norma dn ON dn.id = c.dominio_norma_id";
+    }
+
     private function construirWhere(array $filtros): array
     {
         $condiciones = [];
         $params      = [];
 
         if (!empty($filtros['norma_id'])) {
-            // EXISTS y no un JOIN filtrado, para que el control siga mostrando todas sus normas.
-            $condiciones[] = 'EXISTS (SELECT 1 FROM Controles_Normas x
-                                       WHERE x.control_id = c.id AND x.norma_id = :norma_id)';
+            $condiciones[]      = 'c.norma_id = :norma_id';
             $params['norma_id'] = (int) $filtros['norma_id'];
         }
 
+        if (!empty($filtros['dominio_norma_id'])) {
+            $condiciones[]              = 'c.dominio_norma_id = :dominio_norma_id';
+            $params['dominio_norma_id'] = (int) $filtros['dominio_norma_id'];
+        }
+
         if (!empty($filtros['tipo'])) {
-            $condiciones[]  = 'c.tipo_control ILIKE :tipo';
+            $condiciones[]  = 'EXISTS (SELECT 1
+                                         FROM Controles_Tipos ct
+                                         JOIN Tipos_Control t ON t.id = ct.tipo_id
+                                        WHERE ct.control_id = c.id AND t.nombre ILIKE :tipo)';
             $params['tipo'] = (string) $filtros['tipo'];
         }
 
         if (!empty($filtros['buscar'])) {
-            // Un solo placeholder: PDO con prepares nativas no admite repetir :buscar
-            // dos veces en la misma consulta.
-            $condiciones[]    = "(c.nombre_control || ' ' || COALESCE(c.detalle, '')) ILIKE :buscar";
+            $condiciones[]    = "(c.codigo || ' ' || c.nombre || ' ' || c.descripcion || ' ' || c.proposito) ILIKE :buscar";
             $params['buscar'] = '%' . $filtros['buscar'] . '%';
         }
 
@@ -99,12 +206,11 @@ final class ControlRepository extends BaseRepository
                 ]);
             }
 
-            // Sin nivel explicito se interpreta "el control aplica a esta dimension".
             if (!empty($filtros['nivel'])) {
-                $condiciones[]   = sprintf('c.%s = CAST(:nivel AS nivel_control)', $dimension);
+                $condiciones[]   = sprintf('c.%s = CAST(:nivel AS nivel_relacion)', $dimension);
                 $params['nivel'] = (string) $filtros['nivel'];
             } else {
-                $condiciones[] = sprintf("c.%s <> 'N-A'", $dimension);
+                $condiciones[] = sprintf('c.%s IS NOT NULL', $dimension);
             }
         }
 
@@ -112,171 +218,116 @@ final class ControlRepository extends BaseRepository
         return [$where, $params];
     }
 
-    /** @return array<string,mixed> */
-    public function buscarPorId(int $id): array
+    private function marcador(string $columna): string
     {
-        $fila = $this->run(
-            'SELECT c.id,
-                    c.tipo_control,
-                    c.nombre_control,
-                    c.detalle,
-                    c.integridad,
-                    c.disponibilidad,
-                    c.confidencialidad,
-                    COALESCE(
-                        JSON_AGG(JSON_BUILD_OBJECT(\'id\', n.id, \'nombre\', n.nombre) ORDER BY n.nombre)
-                        FILTER (WHERE n.id IS NOT NULL),
-                        \'[]\'
-                    ) AS normas
-               FROM Controles c
-               LEFT JOIN Controles_Normas cn ON cn.control_id = c.id
-               LEFT JOIN Normas n ON n.id = cn.norma_id
-              WHERE c.id = :id
-              GROUP BY c.id',
-            ['id' => $id]
-        )->fetch();
-
-        if ($fila === false) {
-            throw HttpException::notFound('el control', $id);
-        }
-
-        return $this->hidratar($fila);
+        return in_array($columna, self::DIMENSIONES, true)
+            ? sprintf('CAST(:%s AS nivel_relacion)', $columna)
+            : ':' . $columna;
     }
 
-    /**
-     * HU-005: crea el control y sus vinculos a normas en un solo paso.
-     * Si una norma no existe, la transaccion completa se revierte.
-     *
-     * @param array{tipo_control:string,nombre_control:string,detalle:?string,integridad:string,disponibilidad:string,confidencialidad:string} $datos
-     * @param list<int> $normaIds
-     * @return array<string,mixed>
-     */
-    public function crear(array $datos, array $normaIds): array
+    private function reemplazarAtributos(int $controlId, array $atributos): void
     {
-        return Database::transaction(function (PDO $pdo) use ($datos, $normaIds): array {
-            $id = (int) $this->run(
-                'INSERT INTO Controles
-                     (tipo_control, nombre_control, detalle, integridad, disponibilidad, confidencialidad)
-                 VALUES
-                     (:tipo_control,
-                      :nombre_control,
-                      :detalle,
-                      CAST(:integridad AS nivel_control),
-                      CAST(:disponibilidad AS nivel_control),
-                      CAST(:confidencialidad AS nivel_control))
-                 RETURNING id',
-                $datos
-            )->fetchColumn();
+        foreach (self::ATRIBUTOS as $clave => [$puente, $columna, $catalogo]) {
+            $ids = $atributos[$clave] ?? null;
+            if ($ids === null) {
+                continue;
+            }
 
-            $this->vincularNormas($id, $normaIds);
+            $this->run("DELETE FROM $puente WHERE control_id = :id", ['id' => $controlId]);
 
-            return $this->buscarPorId($id);
-        });
-    }
-
-    /**
-     * HU-010. Actualizacion parcial: solo se tocan los campos enviados.
-     * Las respuestas ya registradas en Respuestas_Controles no se modifican.
-     *
-     * @param array<string,mixed> $campos
-     * @param list<int>|null $normaIds null = no cambiar los vinculos
-     * @return array<string,mixed>
-     */
-    public function actualizar(int $id, array $campos, ?array $normaIds): array
-    {
-        $this->assertExists('Controles', $id, 'el control');
-
-        return Database::transaction(function (PDO $pdo) use ($id, $campos, $normaIds): array {
-            if ($campos !== []) {
-                $asignaciones = [];
-                foreach (array_keys($campos) as $columna) {
-                    $asignaciones[] = in_array($columna, self::DIMENSIONES, true)
-                        ? sprintf('%s = CAST(:%s AS nivel_control)', $columna, $columna)
-                        : sprintf('%s = :%s', $columna, $columna);
+            foreach ($ids as $valorId) {
+                $existe = $this->run("SELECT 1 FROM $catalogo WHERE id = :id", ['id' => $valorId])->fetchColumn();
+                if ($existe === false) {
+                    throw HttpException::validacion([
+                        $clave => sprintf('El id %d no existe en el catalogo.', $valorId),
+                    ]);
                 }
 
                 $this->run(
-                    'UPDATE Controles SET ' . implode(', ', $asignaciones) . ' WHERE id = :id',
-                    $campos + ['id' => $id]
+                    "INSERT INTO $puente (control_id, $columna) VALUES (:control_id, :valor_id)",
+                    ['control_id' => $controlId, 'valor_id' => $valorId]
                 );
             }
-
-            if ($normaIds !== null) {
-                $this->run('DELETE FROM Controles_Normas WHERE control_id = :id', ['id' => $id]);
-                $this->vincularNormas($id, $normaIds);
-            }
-
-            return $this->buscarPorId($id);
-        });
+        }
     }
 
-    /** @param list<int> $normaIds */
-    private function vincularNormas(int $controlId, array $normaIds): void
+    private function sincronizarPreguntas(int $controlId, ?array $textos): void
     {
-        foreach ($normaIds as $normaId) {
-            $existe = $this->run('SELECT 1 FROM Normas WHERE id = :id', ['id' => $normaId])->fetchColumn();
-            if ($existe === false) {
-                throw HttpException::validacion([
-                    'normas' => sprintf('La norma con id %d no existe.', $normaId),
-                ]);
+        if ($textos === null) {
+            return;
+        }
+
+        $porOrden = [];
+        foreach ($this->run('SELECT id, orden FROM Preguntas WHERE control_id = :id', ['id' => $controlId])->fetchAll() as $p) {
+            $porOrden[(int) $p['orden']] = (int) $p['id'];
+        }
+
+        foreach ($textos as $i => $texto) {
+            $orden = $i + 1;
+
+            if (isset($porOrden[$orden])) {
+                $this->run(
+                    'UPDATE Preguntas SET texto = :texto WHERE id = :id',
+                    ['texto' => $texto, 'id' => $porOrden[$orden]]
+                );
+                continue;
             }
 
             $this->run(
-                'INSERT INTO Controles_Normas (control_id, norma_id)
-                 VALUES (:control_id, :norma_id)
-                 ON CONFLICT (control_id, norma_id) DO NOTHING',
-                ['control_id' => $controlId, 'norma_id' => $normaId]
+                'INSERT INTO Preguntas (control_id, orden, texto) VALUES (:control_id, :orden, :texto)',
+                ['control_id' => $controlId, 'orden' => $orden, 'texto' => $texto]
             );
         }
-    }
 
-    /**
-     * Solo se permite borrar un control que nunca haya sido respondido, para no
-     * romper el historial. El borrado logico de HU-011 requiere columna "activo".
-     */
-    public function eliminar(int $id): void
-    {
-        $this->assertExists('Controles', $id, 'el control');
+        foreach ($porOrden as $orden => $preguntaId) {
+            if ($orden <= count($textos)) {
+                continue;
+            }
 
-        $usos = (int) $this->run(
-            'SELECT COUNT(*) FROM Respuestas_Controles WHERE control_id = :id',
-            ['id' => $id]
-        )->fetchColumn();
+            $usos = (int) $this->run(
+                'SELECT COUNT(*) FROM Respuestas WHERE pregunta_id = :id',
+                ['id' => $preguntaId]
+            )->fetchColumn();
 
-        if ($usos > 0) {
-            throw HttpException::conflicto(sprintf(
-                'El control tiene %d respuesta(s) en cuestionarios y no puede eliminarse sin perder historial. '
-                . 'Para retirarlo del catalogo se necesita la columna "activo" (ver docs/GAPS.md).',
-                $usos
-            ));
+            if ($usos > 0) {
+                throw HttpException::conflicto(sprintf(
+                    'La pregunta %d del control ya tiene %d respuesta(s) y no puede eliminarse sin perder historial.',
+                    $orden,
+                    $usos
+                ));
+            }
+
+            $this->run('DELETE FROM Preguntas WHERE id = :id', ['id' => $preguntaId]);
         }
-
-        Database::transaction(function (PDO $pdo) use ($id): void {
-            $this->run('DELETE FROM Controles_Normas WHERE control_id = :id', ['id' => $id]);
-            $this->run('DELETE FROM Controles WHERE id = :id', ['id' => $id]);
-        });
     }
 
-    /** @return list<string> */
-    public function tiposDeControl(): array
-    {
-        return array_map(
-            static fn(array $f): string => (string) $f['tipo_control'],
-            $this->run('SELECT DISTINCT tipo_control FROM Controles ORDER BY tipo_control')->fetchAll()
-        );
-    }
-
-    /**
-     * @param array<string,mixed> $fila
-     * @return array<string,mixed>
-     */
     private function hidratar(array $fila): array
     {
-        $fila['id']     = (int) $fila['id'];
-        $fila['normas'] = json_decode((string) $fila['normas'], true) ?: [];
-        foreach ($fila['normas'] as $i => $norma) {
-            $fila['normas'][$i]['id'] = (int) $norma['id'];
+        $fila['id']               = (int) $fila['id'];
+        $fila['peso']             = (int) $fila['peso'];
+        $fila['norma_id']         = (int) $fila['norma_id'];
+        $fila['dominio_norma_id'] = (int) $fila['dominio_norma_id'];
+        $fila['clausula']         = (int) $fila['clausula'];
+
+        foreach (array_keys(self::ATRIBUTOS) as $clave) {
+            $fila[$clave] = array_map(
+                static function (array $x): array {
+                    $x['id'] = (int) $x['id'];
+                    return $x;
+                },
+                json_decode((string) $fila[$clave], true) ?: []
+            );
         }
+
+        $fila['preguntas'] = array_map(
+            static function (array $p): array {
+                $p['id']    = (int) $p['id'];
+                $p['orden'] = (int) $p['orden'];
+                return $p;
+            },
+            json_decode((string) $fila['preguntas'], true) ?: []
+        );
+
         return $fila;
     }
 }

@@ -55,7 +55,7 @@ abstract class BaseRepository
             // undefined_table
             '42P01' => new HttpException(
                 500,
-                'La tabla consultada no existe. Ejecute Script_V2.sql en la base de datos.'
+                'La tabla consultada no existe. Ejecute Modelo_Relacional.sql en la base de datos.'
             ),
             default => new HttpException(
                 500,
@@ -74,9 +74,12 @@ abstract class BaseRepository
             str_contains($restriccion, 'organizaciones_correo') => 'Ya existe una organizacion con ese correo.',
             str_contains($restriccion, 'evaluadores_correo')    => 'Ya existe un evaluador con ese correo.',
             str_contains($restriccion, 'normas_nombre')         => 'Ya existe una norma con ese nombre.',
-            str_contains($restriccion, 'nombre_control')        => 'Ya existe un control con ese nombre.',
-            str_contains($restriccion, 'controles_normas')      => 'Ese control ya esta vinculado a esa norma.',
-            str_contains($restriccion, 'respuestas_controles')  => 'Ese control ya tiene respuesta en este cuestionario.',
+            str_contains($restriccion, 'controles_norma_id_codigo')
+                                                               => 'Ya existe un control con ese codigo en esa norma.',
+            str_contains($restriccion, 'preguntas_control_id_orden')
+                                                               => 'El control ya tiene una pregunta con ese orden.',
+            str_contains($restriccion, 'respuestas_cuestionario_id_pregunta_id')
+                                                               => 'Esa pregunta ya tiene respuesta en este cuestionario.',
             default                                            => 'El registro ya existe (violacion de unicidad).',
         };
     }
@@ -97,7 +100,9 @@ abstract class BaseRepository
             'Evaluadores',
             'Normas',
             'Controles',
+            'Preguntas',
             'Cuestionarios_Control_Interno',
+            'Respuestas',
         ];
         if (!in_array($tabla, $permitidas, true)) {
             throw new HttpException(500, 'Tabla no permitida en la verificacion de existencia.');

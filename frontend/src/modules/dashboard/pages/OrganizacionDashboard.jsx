@@ -161,17 +161,17 @@ export default function OrganizacionDashboard() {
           {hallazgos.length > 0 && (
             <>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
-                Principales hallazgos (controles no cumplidos)
+                Principales hallazgos (preguntas no cumplidas)
               </Typography>
               <Paper variant="outlined" sx={{ borderRadius: 2, mb: 3 }}>
                 <List dense disablePadding>
                   {hallazgos.slice(0, 5).map((h, i) => (
-                    <Box key={h.control_id}>
+                    <Box key={h.pregunta_id}>
                       {i > 0 && <Divider />}
                       <ListItem>
                         <ListItemText
-                          primary={h.nombre_control}
-                          secondary={h.tipo_control}
+                          primary={`${h.codigo} — ${h.control}`}
+                          secondary={h.texto}
                         />
                       </ListItem>
                     </Box>

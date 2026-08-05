@@ -10,26 +10,21 @@ use CloudCR\Core\Response;
 use CloudCR\Core\Validator;
 use CloudCR\Repositories\RespuestaRepository;
 
-/** HU-013, HU-014. */
 final class RespuestaController extends BaseController
 {
     public function __construct(private RespuestaRepository $repo = new RespuestaRepository())
     {
     }
 
-    /**
-     * HU-013 y HU-014: PUT /cuestionarios/{id}/respuestas/{controlId}
-     * Idempotente: crea la respuesta o la actualiza si ya existia.
-     */
-    public function guardar(Request $r, int $cuestionarioId, int $controlId): void
+    public function guardar(Request $r, int $cuestionarioId, int $preguntaId): void
     {
-        $datos = $this->validarFila($r->body());
-        $resultado = $this->repo->guardar($cuestionarioId, $controlId, $datos);
+        $datos     = $this->validarFila($r->body());
+        $resultado = $this->repo->guardar($cuestionarioId, $preguntaId, $datos);
 
         if ($resultado['creado']) {
             Response::created(
                 $resultado['respuesta'],
-                sprintf('/cuestionarios/%d/respuestas/%d', $cuestionarioId, $controlId)
+                sprintf('/cuestionarios/%d/respuestas/%d', $cuestionarioId, $preguntaId)
             );
             return;
         }
@@ -37,13 +32,9 @@ final class RespuestaController extends BaseController
         Response::ok($resultado['respuesta']);
     }
 
-    /**
-     * Guardado por lotes del cuestionario completo, en una sola transaccion.
-     * POST /cuestionarios/{id}/respuestas  con { "respuestas": [ {...}, {...} ] }
-     */
     public function guardarLote(Request $r, int $cuestionarioId): void
     {
-        $body = $r->body();
+        $body  = $r->body();
         $filas = $body['respuestas'] ?? null;
 
         if (!is_array($filas) || $filas === [] || !array_is_list($filas)) {
@@ -52,8 +43,8 @@ final class RespuestaController extends BaseController
             ]);
         }
 
-        $errores    = [];
-        $validadas  = [];
+        $errores   = [];
+        $validadas = [];
 
         foreach ($filas as $i => $fila) {
             if (!is_array($fila)) {
@@ -61,72 +52,64 @@ final class RespuestaController extends BaseController
                 continue;
             }
 
-            $v         = new Validator($fila);
-            $controlId = $v->requiredId('control_id');
-            $datos     = [
-                'respuesta'   => $v->enum('respuesta', Validator::RESPUESTAS),
-                'documentado' => $v->enum('documentado', Validator::SI_NO),
-                'repetible'   => $v->enum('repetible', Validator::SI_NO),
-                'evidencia'   => $v->enum('evidencia', Validator::SI_NO),
-            ];
+            $v          = new Validator($fila);
+            $preguntaId = $v->requiredId('pregunta_id');
+            $datos      = $this->campos($v);
 
             if ($v->fails()) {
-                $errores["respuestas.$i"] = 'Fila invalida: revise control_id, respuesta, documentado, repetible y evidencia.';
+                $errores["respuestas.$i"] = 'Fila invalida: revise pregunta_id, cumple, documentado, repetible y evidencia.';
                 continue;
             }
 
-            $validadas[] = ['control_id' => (int) $controlId] + $datos;
+            $validadas[] = ['pregunta_id' => (int) $preguntaId] + $datos;
         }
 
         if ($errores !== []) {
             throw HttpException::validacion($errores);
         }
 
-        // Un mismo control no puede venir dos veces en el mismo lote.
-        $ids = array_column($validadas, 'control_id');
+        $ids = array_column($validadas, 'pregunta_id');
         if (count($ids) !== count(array_unique($ids))) {
             throw HttpException::validacion([
-                'respuestas' => 'Hay control_id repetidos en el lote.',
+                'respuestas' => 'Hay pregunta_id repetidos en el lote.',
             ]);
         }
 
-        /** @var list<array{control_id:int,respuesta:string,documentado:string,repetible:string,evidencia:string}> $validadas */
         Response::ok($this->repo->guardarLote($cuestionarioId, $validadas));
     }
 
-    public function show(Request $r, int $cuestionarioId, int $controlId): void
+    public function show(Request $r, int $cuestionarioId, int $preguntaId): void
     {
-        Response::ok($this->repo->buscar($cuestionarioId, $controlId));
+        Response::ok($this->repo->buscar($cuestionarioId, $preguntaId));
     }
 
-    /** Controles del catalogo aun sin responder en este cuestionario. */
     public function pendientes(Request $r, int $cuestionarioId): void
     {
         Response::ok($this->repo->pendientes($cuestionarioId));
     }
 
-    public function destroy(Request $r, int $cuestionarioId, int $controlId): void
+    public function destroy(Request $r, int $cuestionarioId, int $preguntaId): void
     {
-        $this->repo->eliminar($cuestionarioId, $controlId);
+        $this->repo->eliminar($cuestionarioId, $preguntaId);
         Response::noContent();
     }
 
-    /**
-     * @param array<string,mixed> $body
-     * @return array{respuesta:string,documentado:string,repetible:string,evidencia:string}
-     */
     private function validarFila(array $body): array
     {
-        $v = new Validator($body);
-        $datos = [
-            'respuesta'   => $v->enum('respuesta', Validator::RESPUESTAS),
-            'documentado' => $v->enum('documentado', Validator::SI_NO),
-            'repetible'   => $v->enum('repetible', Validator::SI_NO),
-            'evidencia'   => $v->enum('evidencia', Validator::SI_NO),
-        ];
+        $v     = new Validator($body);
+        $datos = $this->campos($v);
         $v->assert();
 
-        /** @var array{respuesta:string,documentado:string,repetible:string,evidencia:string} $datos */
         return $datos;
+    }
+
+    private function campos(Validator $v): array
+    {
+        return [
+            'cumple'      => $v->enum('cumple', Validator::RESPUESTAS),
+            'documentado' => $v->enum('documentado', Validator::RESPUESTAS),
+            'repetible'   => $v->enum('repetible', Validator::RESPUESTAS),
+            'evidencia'   => $v->enum('evidencia', Validator::RESPUESTAS),
+        ];
     }
 }

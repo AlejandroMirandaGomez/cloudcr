@@ -79,6 +79,7 @@ export default function Table({
                                   maxHeight,
                                   fillToBottom = true,
                                   storageKey,
+                                  defaultColumnVisibility = {},
                                   tableOptions = {},
                               }) {
     'use no memo';
@@ -90,13 +91,15 @@ export default function Table({
     const fillsToBottom = fillToBottom && !maxHeight;
 
     const [columnVisibility, setColumnVisibility] = useState(
-        () => (storageKey ? readColumnVisibility(storageKey) : {}),
+        () => (storageKey
+            ? { ...defaultColumnVisibility, ...readColumnVisibility(storageKey) }
+            : defaultColumnVisibility),
     );
 
     const handleColumnVisibilityChange = (updater) => {
         const next = typeof updater === 'function' ? updater(columnVisibility) : updater;
         setColumnVisibility(next);
-        writeColumnVisibility(storageKey, next);
+        if (storageKey) writeColumnVisibility(storageKey, next);
     };
 
     const stableColumns = useMemo(() => columns, [columns]);
@@ -110,12 +113,12 @@ export default function Table({
         showProgressBars: loading,
         showAlertBanner: !!error,
         ...(enableRowSelection && rowSelection != null ? { rowSelection } : {}),
-        ...(storageKey ? { columnVisibility } : {}),
+        columnVisibility,
     };
 
     const table = useMaterialReactTable({
         ...tableOptions,
-        ...(storageKey ? { onColumnVisibilityChange: handleColumnVisibilityChange } : {}),
+        onColumnVisibilityChange: handleColumnVisibilityChange,
         columns: stableColumns,
         data: data ?? [],
         getRowId: (row) => row.id,

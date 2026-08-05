@@ -15,9 +15,9 @@ final class NormaRepository extends BaseRepository
         $filas = $this->run(
             'SELECT n.id,
                     n.nombre,
-                    COUNT(cn.control_id) AS controles_vinculados
+                    COUNT(c.id) AS controles_vinculados
                FROM Normas n
-               LEFT JOIN Controles_Normas cn ON cn.norma_id = n.id
+               LEFT JOIN Controles c ON c.norma_id = n.id
               GROUP BY n.id, n.nombre
               ORDER BY n.nombre
               LIMIT :limit OFFSET :offset',
@@ -54,12 +54,6 @@ final class NormaRepository extends BaseRepository
         )->fetch();
     }
 
-    /**
-     * HU-009. Los controles ya vinculados conservan la relacion porque
-     * Controles_Normas apunta al id, no al nombre.
-     *
-     * @return array<string,mixed>
-     */
     public function actualizar(int $id, string $nombre): array
     {
         $fila = $this->run(
@@ -82,13 +76,13 @@ final class NormaRepository extends BaseRepository
         $this->buscarPorId($id);
 
         $vinculos = (int) $this->run(
-            'SELECT COUNT(*) FROM Controles_Normas WHERE norma_id = :id',
+            'SELECT COUNT(*) FROM Controles WHERE norma_id = :id',
             ['id' => $id]
         )->fetchColumn();
 
         if ($vinculos > 0) {
             throw HttpException::conflicto(sprintf(
-                'La norma esta vinculada a %d control(es). Desvincule los controles primero '
+                'La norma tiene %d control(es) asociados. Reasigne o elimine esos controles primero '
                 . '(el esquema actual no tiene columna "activo" para desactivarla sin borrarla).',
                 $vinculos
             ));

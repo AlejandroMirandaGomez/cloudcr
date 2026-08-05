@@ -5,42 +5,36 @@ declare(strict_types=1);
 namespace CloudCR\Repositories;
 
 /**
- * HU-018 y consultas de resultados.
- *
- * Criterio de calculo (documentado para Persona 4, que define las reglas de negocio):
- *   - Un control cuenta para una dimension solo si su nivel en esa dimension es P o S.
- *     Los controles marcados N-A en la dimension se excluyen del denominador.
- *   - Las respuestas 'N-A' tambien se excluyen del denominador (no aplican a la organizacion).
- *   - cumplimiento = respuestas 'Si' / controles aplicables.
+ * Criterio de calculo:
+ *   - La unidad de medida es la pregunta: un control aporta tantas preguntas como tenga.
+ *   - Una pregunta cuenta para una dimension solo si el control al que pertenece tiene
+ *     nivel Primario o Secundario en esa dimension. Las dimensiones en NULL se excluyen.
+ *   - Las respuestas 'N/A' se excluyen del denominador (no aplican a la organizacion).
+ *   - cumplimiento = respuestas 'Si' / preguntas aplicables.
  *   - Escala de color: rojo < 0.6, amarillo < 0.85, verde >= 0.85.
  */
 final class ReporteRepository extends BaseRepository
 {
     private const DIMENSIONES = ['integridad', 'disponibilidad', 'confidencialidad'];
 
-    /**
-     * Resumen general del cuestionario (pantalla de Resultados).
-     *
-     * @return array<string,mixed>
-     */
     public function resumen(int $cuestionarioId): array
     {
         $this->assertExists('Cuestionarios_Control_Interno', $cuestionarioId, 'el cuestionario');
 
         $fila = $this->run(
-            "SELECT COUNT(*)                                            AS total_respondidos,
-                    COUNT(*) FILTER (WHERE rc.respuesta = 'Si')         AS cumplidos,
-                    COUNT(*) FILTER (WHERE rc.respuesta = 'No')         AS no_cumplidos,
-                    COUNT(*) FILTER (WHERE rc.respuesta = 'N-A')        AS no_aplica,
-                    COUNT(*) FILTER (WHERE rc.documentado = 'si')       AS documentados,
-                    COUNT(*) FILTER (WHERE rc.repetible = 'si')         AS repetibles,
-                    COUNT(*) FILTER (WHERE rc.evidencia = 'si')         AS con_evidencia
-               FROM Respuestas_Controles rc
-              WHERE rc.cuestionario_id = :id",
+            "SELECT COUNT(*)                                        AS total_respondidos,
+                    COUNT(*) FILTER (WHERE r.cumple = 'Sí')         AS cumplidos,
+                    COUNT(*) FILTER (WHERE r.cumple = 'No')         AS no_cumplidos,
+                    COUNT(*) FILTER (WHERE r.cumple = 'N/A')        AS no_aplica,
+                    COUNT(*) FILTER (WHERE r.documentado = 'Sí')    AS documentados,
+                    COUNT(*) FILTER (WHERE r.repetible = 'Sí')      AS repetibles,
+                    COUNT(*) FILTER (WHERE r.evidencia = 'Sí')      AS con_evidencia
+               FROM Respuestas r
+              WHERE r.cuestionario_id = :id",
             ['id' => $cuestionarioId]
         )->fetch();
 
-        $total     = (int) $fila['total_respondidos'];
+        $total      = (int) $fila['total_respondidos'];
         $aplicables = $total - (int) $fila['no_aplica'];
 
         return [
@@ -51,7 +45,6 @@ final class ReporteRepository extends BaseRepository
             'no_aplica'         => (int) $fila['no_aplica'],
             'aplicables'        => $aplicables,
             'cumplimiento'      => $this->ratio((int) $fila['cumplidos'], $aplicables),
-            // Insumos para el nivel de madurez que define Persona 4.
             'madurez_insumos'   => [
                 'tasa_documentado' => $this->ratio((int) $fila['documentados'], $total),
                 'tasa_repetible'   => $this->ratio((int) $fila['repetibles'], $total),
@@ -60,11 +53,6 @@ final class ReporteRepository extends BaseRepository
         ];
     }
 
-    /**
-     * HU-018: mapa de calor por dimension, con desglose por nivel P/S.
-     *
-     * @return array<string,mixed>
-     */
     public function mapaCalor(int $cuestionarioId): array
     {
         $this->assertExists('Cuestionarios_Control_Interno', $cuestionarioId, 'el cuestionario');
@@ -72,21 +60,22 @@ final class ReporteRepository extends BaseRepository
         $selects = [];
         foreach (self::DIMENSIONES as $dim) {
             $selects[] = sprintf(
-                "COUNT(*) FILTER (WHERE ct.%1\$s <> 'N-A' AND rc.respuesta <> 'N-A')                        AS %1\$s_aplicables,
-                 COUNT(*) FILTER (WHERE ct.%1\$s <> 'N-A' AND rc.respuesta = 'Si')                          AS %1\$s_cumplidos,
-                 COUNT(*) FILTER (WHERE ct.%1\$s = 'P'   AND rc.respuesta <> 'N-A')                         AS %1\$s_p_aplicables,
-                 COUNT(*) FILTER (WHERE ct.%1\$s = 'P'   AND rc.respuesta = 'Si')                           AS %1\$s_p_cumplidos,
-                 COUNT(*) FILTER (WHERE ct.%1\$s = 'S'   AND rc.respuesta <> 'N-A')                         AS %1\$s_s_aplicables,
-                 COUNT(*) FILTER (WHERE ct.%1\$s = 'S'   AND rc.respuesta = 'Si')                           AS %1\$s_s_cumplidos",
+                "COUNT(*) FILTER (WHERE ct.%1\$s IS NOT NULL      AND r.cumple <> 'N/A') AS %1\$s_aplicables,
+                 COUNT(*) FILTER (WHERE ct.%1\$s IS NOT NULL      AND r.cumple = 'Sí')   AS %1\$s_cumplidos,
+                 COUNT(*) FILTER (WHERE ct.%1\$s = 'Primario'     AND r.cumple <> 'N/A') AS %1\$s_p_aplicables,
+                 COUNT(*) FILTER (WHERE ct.%1\$s = 'Primario'     AND r.cumple = 'Sí')   AS %1\$s_p_cumplidos,
+                 COUNT(*) FILTER (WHERE ct.%1\$s = 'Secundario'   AND r.cumple <> 'N/A') AS %1\$s_s_aplicables,
+                 COUNT(*) FILTER (WHERE ct.%1\$s = 'Secundario'   AND r.cumple = 'Sí')   AS %1\$s_s_cumplidos",
                 $dim
             );
         }
 
         $fila = $this->run(
             'SELECT ' . implode(",\n                    ", $selects) . '
-               FROM Respuestas_Controles rc
-               JOIN Controles ct ON ct.id = rc.control_id
-              WHERE rc.cuestionario_id = :id',
+               FROM Respuestas r
+               JOIN Preguntas p ON p.id = r.pregunta_id
+               JOIN Controles ct ON ct.id = p.control_id
+              WHERE r.cuestionario_id = :id',
             ['id' => $cuestionarioId]
         )->fetch();
 
@@ -134,55 +123,47 @@ final class ReporteRepository extends BaseRepository
         ];
     }
 
-    /**
-     * Controles no cumplidos del cuestionario. Es la entrada para las
-     * recomendaciones automaticas que define Persona 4.
-     *
-     * @return list<array<string,mixed>>
-     */
     public function hallazgos(int $cuestionarioId): array
     {
         $this->assertExists('Cuestionarios_Control_Interno', $cuestionarioId, 'el cuestionario');
 
         return array_map(
             static function (array $f): array {
-                $f['control_id'] = (int) $f['control_id'];
-                $f['normas']     = json_decode((string) $f['normas'], true) ?: [];
+                $f['control_id']  = (int) $f['control_id'];
+                $f['pregunta_id'] = (int) $f['pregunta_id'];
+                $f['orden']       = (int) $f['orden'];
+                $f['peso']        = (int) $f['peso'];
                 return $f;
             },
             $this->run(
                 "SELECT ct.id AS control_id,
-                        ct.tipo_control,
-                        ct.nombre_control,
-                        ct.detalle,
+                        ct.codigo,
+                        ct.nombre AS control,
+                        ct.peso,
+                        n.nombre AS norma,
+                        dn.nombre AS dominio_norma,
+                        p.id AS pregunta_id,
+                        p.orden,
+                        p.texto,
                         ct.integridad,
                         ct.disponibilidad,
                         ct.confidencialidad,
-                        rc.documentado,
-                        rc.repetible,
-                        rc.evidencia,
-                        COALESCE(
-                            JSON_AGG(n.nombre ORDER BY n.nombre) FILTER (WHERE n.id IS NOT NULL),
-                            '[]'
-                        ) AS normas
-                   FROM Respuestas_Controles rc
-                   JOIN Controles ct ON ct.id = rc.control_id
-                   LEFT JOIN Controles_Normas cn ON cn.control_id = ct.id
-                   LEFT JOIN Normas n ON n.id = cn.norma_id
-                  WHERE rc.cuestionario_id = :id
-                    AND rc.respuesta = 'No'
-                  GROUP BY ct.id, rc.documentado, rc.repetible, rc.evidencia
-                  ORDER BY ct.tipo_control, ct.nombre_control",
+                        r.documentado,
+                        r.repetible,
+                        r.evidencia
+                   FROM Respuestas r
+                   JOIN Preguntas p ON p.id = r.pregunta_id
+                   JOIN Controles ct ON ct.id = p.control_id
+                   JOIN Normas n ON n.id = ct.norma_id
+                   JOIN Dominios_Norma dn ON dn.id = ct.dominio_norma_id
+                  WHERE r.cuestionario_id = :id
+                    AND r.cumple = 'No'
+                  ORDER BY ct.peso DESC, LENGTH(ct.codigo), ct.codigo, p.orden",
                 ['id' => $cuestionarioId]
             )->fetchAll()
         );
     }
 
-    /**
-     * Evolucion del cumplimiento de una organizacion en el tiempo.
-     *
-     * @return list<array<string,mixed>>
-     */
     public function historialOrganizacion(int $organizacionId): array
     {
         $this->assertExists('Organizaciones', $organizacionId, 'la organizacion');
@@ -206,11 +187,11 @@ final class ReporteRepository extends BaseRepository
                 "SELECT c.id AS cuestionario_id,
                         c.fecha,
                         e.nombre AS evaluador,
-                        COUNT(rc.id) FILTER (WHERE rc.respuesta <> 'N-A') AS aplicables,
-                        COUNT(rc.id) FILTER (WHERE rc.respuesta = 'Si')   AS cumplidos
+                        COUNT(r.id) FILTER (WHERE r.cumple <> 'N/A') AS aplicables,
+                        COUNT(r.id) FILTER (WHERE r.cumple = 'Sí')   AS cumplidos
                    FROM Cuestionarios_Control_Interno c
                    JOIN Evaluadores e ON e.id = c.evaluador_id
-                   LEFT JOIN Respuestas_Controles rc ON rc.cuestionario_id = c.id
+                   LEFT JOIN Respuestas r ON r.cuestionario_id = c.id
                   WHERE c.organizacion_id = :id
                   GROUP BY c.id, c.fecha, e.nombre
                   ORDER BY c.fecha, c.id",
@@ -222,7 +203,7 @@ final class ReporteRepository extends BaseRepository
     private function ratio(int $numerador, int $denominador): ?float
     {
         if ($denominador <= 0) {
-            return null; // sin datos: el frontend debe mostrar "sin evaluar", no 0%.
+            return null;
         }
         return round($numerador / $denominador, 4);
     }

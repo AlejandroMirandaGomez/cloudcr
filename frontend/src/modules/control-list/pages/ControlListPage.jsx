@@ -26,10 +26,15 @@ function CIDChip({ value }) {
   );
 }
 
+const COLUMNAS_OCULTAS = { codigo: false, dominioNorma: false, peso: false, tipo: false };
+
 const columns = [
   { accessorKey: 'norma', header: 'Norma', size: 90 },
+  { accessorKey: 'codigo', header: 'Código', size: 90 },
   { accessorKey: 'nombre', header: 'Nombre', size: 240 },
+  { accessorKey: 'dominioNorma', header: 'Dominio', size: 130 },
   { accessorKey: 'descripcion', header: 'Descripción', size: 420 },
+  { accessorKey: 'peso', header: 'Peso', size: 80 },
   {
     id: 'tipo',
     header: 'Tipo',
@@ -107,8 +112,9 @@ export default function ControlListPage() {
           columns={cols}
           data={controles}
           storageKey="control-list"
+          defaultColumnVisibility={COLUMNAS_OCULTAS}
           enableRowActions
-          renderRowActions={({ row }) => <RowActionsMenu codigo={row.original.codigo} />}
+          renderRowActions={({ row }) => <RowActionsMenu id={row.original.id} />}
           tableOptions={tableOptions}
         />
       )}

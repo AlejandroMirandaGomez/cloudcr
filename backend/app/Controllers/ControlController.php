@@ -4,34 +4,36 @@ declare(strict_types=1);
 
 namespace CloudCR\Controllers;
 
+use CloudCR\Core\HttpException;
 use CloudCR\Core\Request;
 use CloudCR\Core\Response;
 use CloudCR\Core\Validator;
 use CloudCR\Repositories\ControlRepository;
 
-/** HU-005, HU-010, HU-012. */
 final class ControlController extends BaseController
 {
+    private const ATRIBUTOS = ['tipos', 'conceptos', 'dominios_seguridad', 'capacidades'];
+
     public function __construct(private ?ControlRepository $repo = null)
     {
         $this->repo ??= new ControlRepository();
     }
 
-    /** HU-012: GET /controles?norma_id=&tipo=&dimension=&nivel=&buscar= */
     public function index(Request $r): void
     {
         ['limit' => $limit, 'offset' => $offset] = $this->paginacionDesde($r);
 
         $filtros = [
-            'norma_id'  => $r->query('norma_id') !== null ? (int) $r->query('norma_id') : null,
-            'tipo'      => $r->query('tipo'),
-            'dimension' => $r->query('dimension'),
-            'nivel'     => $r->query('nivel'),
-            'buscar'    => $r->query('buscar'),
+            'norma_id'         => $r->query('norma_id') !== null ? (int) $r->query('norma_id') : null,
+            'dominio_norma_id' => $r->query('dominio_norma_id') !== null ? (int) $r->query('dominio_norma_id') : null,
+            'tipo'             => $r->query('tipo'),
+            'dimension'        => $r->query('dimension'),
+            'nivel'            => $r->query('nivel'),
+            'buscar'           => $r->query('buscar'),
         ];
 
         if ($filtros['nivel'] !== null && !in_array($filtros['nivel'], Validator::NIVELES, true)) {
-            throw \CloudCR\Core\HttpException::validacion([
+            throw HttpException::validacion([
                 'nivel' => 'Valor no permitido. Use: ' . implode(', ', Validator::NIVELES) . '.',
             ]);
         }
@@ -47,34 +49,39 @@ final class ControlController extends BaseController
         Response::ok($this->repo->buscarPorId($id));
     }
 
-    /** Utilidad para poblar el combo de filtros del frontend. */
-    public function tipos(Request $r): void
-    {
-        Response::ok($this->repo->tiposDeControl());
-    }
-
-    /** HU-005: control + vinculo a norma(s) en un solo paso. */
     public function store(Request $r): void
     {
         $v = new Validator($r->body());
 
         $datos = [
-            'tipo_control'     => $v->requiredString('tipo_control', 100, 3),
-            'nombre_control'   => $v->requiredString('nombre_control', 255, 3),
-            'detalle'          => $v->optionalText('detalle'),
-            'integridad'       => $v->enum('integridad', Validator::NIVELES),
-            'disponibilidad'   => $v->enum('disponibilidad', Validator::NIVELES),
-            'confidencialidad' => $v->enum('confidencialidad', Validator::NIVELES),
+            'norma_id'         => $v->requiredId('norma_id'),
+            'dominio_norma_id' => $v->requiredId('dominio_norma_id'),
+            'codigo'           => $v->requiredString('codigo', 10),
+            'nombre'           => $v->requiredString('nombre', 255, 3),
+            'proposito'        => $v->requiredString('proposito', 1000, 3),
+            'descripcion'      => $v->requiredString('descripcion', 1000, 3),
+            'peso'             => $v->entero('peso', 1, 10),
+            'confidencialidad' => $v->optionalEnum('confidencialidad', Validator::NIVELES),
+            'integridad'       => $v->optionalEnum('integridad', Validator::NIVELES),
+            'disponibilidad'   => $v->optionalEnum('disponibilidad', Validator::NIVELES),
+            'guia'             => $v->optionalText('guia'),
+            'otra_informacion' => $v->optionalText('otra_informacion'),
         ];
-        $normaIds = $v->idList('normas', true);
+
+        $atributos = [
+            'tipos'              => $v->idList('tipos'),
+            'conceptos'          => $v->idList('conceptos', false),
+            'dominios_seguridad' => $v->idList('dominios_seguridad', false),
+            'capacidades'        => $v->idList('capacidades', false),
+        ];
+
+        $preguntas = $v->textList('preguntas', false);
         $v->assert();
 
-        /** @var array{tipo_control:string,nombre_control:string,detalle:?string,integridad:string,disponibilidad:string,confidencialidad:string} $datos */
-        $control = $this->repo->crear($datos, (array) $normaIds);
+        $control = $this->repo->crear($datos, $atributos, $preguntas);
         Response::created($control, '/controles/' . $control['id']);
     }
 
-    /** HU-010: actualizacion parcial; las respuestas historicas no se alteran. */
     public function update(Request $r, int $id): void
     {
         $body = $r->body();
@@ -83,25 +90,49 @@ final class ControlController extends BaseController
 
         $campos = [];
 
-        if (array_key_exists('tipo_control', $body)) {
-            $campos['tipo_control'] = $v->requiredString('tipo_control', 100, 3);
+        if (array_key_exists('norma_id', $body)) {
+            $campos['norma_id'] = $v->requiredId('norma_id');
         }
-        if (array_key_exists('nombre_control', $body)) {
-            $campos['nombre_control'] = $v->requiredString('nombre_control', 255, 3);
+        if (array_key_exists('dominio_norma_id', $body)) {
+            $campos['dominio_norma_id'] = $v->requiredId('dominio_norma_id');
         }
-        if (array_key_exists('detalle', $body)) {
-            $campos['detalle'] = $v->optionalText('detalle');
+        if (array_key_exists('codigo', $body)) {
+            $campos['codigo'] = $v->requiredString('codigo', 10);
         }
-        foreach (['integridad', 'disponibilidad', 'confidencialidad'] as $dimension) {
+        if (array_key_exists('nombre', $body)) {
+            $campos['nombre'] = $v->requiredString('nombre', 255, 3);
+        }
+        if (array_key_exists('proposito', $body)) {
+            $campos['proposito'] = $v->requiredString('proposito', 1000, 3);
+        }
+        if (array_key_exists('descripcion', $body)) {
+            $campos['descripcion'] = $v->requiredString('descripcion', 1000, 3);
+        }
+        if (array_key_exists('peso', $body)) {
+            $campos['peso'] = $v->entero('peso', 1, 10);
+        }
+        foreach (['confidencialidad', 'integridad', 'disponibilidad'] as $dimension) {
             if (array_key_exists($dimension, $body)) {
-                $campos[$dimension] = $v->enum($dimension, Validator::NIVELES);
+                $campos[$dimension] = $v->optionalEnum($dimension, Validator::NIVELES);
+            }
+        }
+        foreach (['guia', 'otra_informacion'] as $texto) {
+            if (array_key_exists($texto, $body)) {
+                $campos[$texto] = $v->optionalText($texto);
             }
         }
 
-        $normaIds = array_key_exists('normas', $body) ? $v->idList('normas', false) : null;
+        $atributos = [];
+        foreach (self::ATRIBUTOS as $clave) {
+            if (array_key_exists($clave, $body)) {
+                $atributos[$clave] = $v->idList($clave, false);
+            }
+        }
+
+        $preguntas = array_key_exists('preguntas', $body) ? $v->textList('preguntas', false) : null;
         $v->assert();
 
-        Response::ok($this->repo->actualizar($id, $campos, $normaIds));
+        Response::ok($this->repo->actualizar($id, $campos, $atributos, $preguntas));
     }
 
     public function destroy(Request $r, int $id): void

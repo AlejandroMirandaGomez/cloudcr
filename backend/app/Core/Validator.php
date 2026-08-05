@@ -5,19 +5,17 @@ declare(strict_types=1);
 namespace CloudCR\Core;
 
 /**
- * Validaciones basicas (entregable de Persona 2). Acumula errores por campo y
- * lanza un 422 con todos juntos, en lugar de fallar campo por campo.
+ * Validaciones basicas. Acumula errores por campo y lanza un 422 con todos
+ * juntos, en lugar de fallar campo por campo.
  *
- * Los valores permitidos replican exactamente los ENUM del script de Persona 1:
- *   nivel_control      -> P, S, N-A
- *   respuesta_control  -> Si, No, N-A
- *   si_no              -> si, no
+ * Los valores permitidos replican los ENUM de Modelo_Relacional.sql:
+ *   nivel_relacion     -> Primario, Secundario (o NULL)
+ *   respuesta_pregunta -> Si, No, N/A
  */
 final class Validator
 {
-    public const NIVELES    = ['P', 'S', 'N-A'];
-    public const RESPUESTAS = ['Si', 'No', 'N-A'];
-    public const SI_NO      = ['si', 'no'];
+    public const NIVELES    = ['Primario', 'Secundario'];
+    public const RESPUESTAS = ['Sí', 'No', 'N/A'];
 
     /** @var array<string,string> */
     private array $errores = [];
@@ -143,6 +141,73 @@ final class Validator
         }
 
         return $valor;
+    }
+
+    /** @param list<string> $permitidos */
+    public function optionalEnum(string $campo, array $permitidos): ?string
+    {
+        $valor = $this->data[$campo] ?? null;
+
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+        if (!is_string($valor) || !in_array($valor, $permitidos, true)) {
+            $this->errores[$campo] = 'Valor no permitido. Use: ' . implode(', ', $permitidos) . '.';
+            return null;
+        }
+
+        return $valor;
+    }
+
+    public function entero(string $campo, int $min, int $max): ?int
+    {
+        $valor = $this->data[$campo] ?? null;
+
+        if ($valor === null || $valor === '') {
+            $this->errores[$campo] = 'Es obligatorio.';
+            return null;
+        }
+        if (!is_numeric($valor) || (float) $valor != (int) $valor) {
+            $this->errores[$campo] = 'Debe ser un numero entero.';
+            return null;
+        }
+
+        $entero = (int) $valor;
+        if ($entero < $min || $entero > $max) {
+            $this->errores[$campo] = sprintf('Debe estar entre %d y %d.', $min, $max);
+            return null;
+        }
+
+        return $entero;
+    }
+
+    /** @return list<string>|null */
+    public function textList(string $campo, bool $obligatoria = true): ?array
+    {
+        $valor = $this->data[$campo] ?? null;
+
+        if ($valor === null || $valor === []) {
+            if ($obligatoria) {
+                $this->errores[$campo] = 'Debe indicar al menos un elemento.';
+                return null;
+            }
+            return [];
+        }
+        if (!is_array($valor) || array_is_list($valor) === false) {
+            $this->errores[$campo] = 'Debe ser un arreglo de textos.';
+            return null;
+        }
+
+        $textos = [];
+        foreach ($valor as $item) {
+            if (!is_string($item) || trim($item) === '') {
+                $this->errores[$campo] = 'Todos los elementos deben ser texto no vacio.';
+                return null;
+            }
+            $textos[] = trim($item);
+        }
+
+        return $textos;
     }
 
     public function requiredId(string $campo): ?int

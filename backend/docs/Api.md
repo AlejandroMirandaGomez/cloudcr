@@ -32,11 +32,10 @@ paginacion); las de error, en `error`.
 
 | Campo | Valores |
 |---|---|
-| `integridad`, `disponibilidad`, `confidencialidad` | `P`, `S`, `N-A` |
-| `respuesta` | `Si`, `No`, `N-A` |
-| `documentado`, `repetible`, `evidencia` | `si`, `no` |
+| `integridad`, `disponibilidad`, `confidencialidad` | `Primario`, `Secundario`, o `null` si la norma no marca esa propiedad |
+| `cumple`, `documentado`, `repetible`, `evidencia` | `Sí`, `No`, `N/A` |
 
-Son sensibles a mayusculas: `Si` en la respuesta, `si` en los tres booleanos.
+Son sensibles a mayusculas y llevan tilde: `Sí`, no `Si`.
 
 ## Paginacion
 
@@ -84,55 +83,80 @@ Los listados aceptan `?limit=` (1–200, por defecto 50) y `?offset=`, y devuelv
 | PUT | `/normas/{id}` | Los controles vinculados conservan la relacion |
 | DELETE | `/normas/{id}` | 409 si tiene controles vinculados |
 
+## Catalogos
+
+**GET `/catalogos`** — listas fijas de la norma, para poblar los formularios: `normas`,
+`dominios_norma`, `tipos`, `conceptos`, `dominios_seguridad` y `capacidades`. Cada elemento
+trae `id` y `nombre`; `dominios_norma` incluye ademas `clausula`.
+
 ## Controles — HU-005, HU-010, HU-012
 
 **GET `/controles`** — HU-012, filtros combinables:
 
 | Parametro | Ejemplo | Efecto |
 |---|---|---|
-| `norma_id` | `2` | Solo controles vinculados a esa norma |
+| `norma_id` | `1` | Solo controles de esa norma |
+| `dominio_norma_id` | `4` | Solo controles de ese dominio |
 | `tipo` | `Preventivo` | Coincidencia exacta, sin distinguir mayusculas |
-| `dimension` | `integridad` | Solo controles que aplican a esa dimension (nivel distinto de `N-A`) |
-| `nivel` | `P` | Combinado con `dimension`, exige ese nivel exacto |
-| `buscar` | `cifrado` | Busca en nombre y detalle |
+| `dimension` | `integridad` | Solo controles que aplican a esa dimension (nivel no nulo) |
+| `nivel` | `Primario` | Combinado con `dimension`, exige ese nivel exacto |
+| `buscar` | `cifrado` | Busca en codigo, nombre, descripcion y proposito |
 
 ```
-GET /controles?norma_id=1&dimension=confidencialidad&nivel=P
+GET /controles?dimension=confidencialidad&nivel=Primario
 ```
 
-Cada control devuelve sus normas embebidas:
+Cada control devuelve la norma, el dominio, los cuatro atributos N:M y sus preguntas:
 
 ```json
-{ "id": 4, "tipo_control": "Preventivo", "nombre_control": "Encriptacion de Datos",
-  "detalle": "Encriptacion en transito y reposo",
-  "integridad": "P", "disponibilidad": "N-A", "confidencialidad": "P",
-  "normas": [ { "id": 1, "nombre": "ISO/IEC 27001" }, { "id": 3, "nombre": "CIS Controls" } ] }
+{ "id": 4, "codigo": "8.24", "nombre": "Uso de criptografia",
+  "norma_id": 1, "norma": "27002",
+  "dominio_norma_id": 4, "clausula": 8, "dominio_norma": "Tecnologicos",
+  "proposito": "...", "descripcion": "...", "peso": 8,
+  "confidencialidad": "Primario", "integridad": "Primario", "disponibilidad": "Secundario",
+  "guia": "...", "otra_informacion": "...",
+  "tipos": [ { "id": 1, "nombre": "Preventivo" } ],
+  "conceptos": [ { "id": 2, "nombre": "Proteger" } ],
+  "dominios_seguridad": [ { "id": 2, "nombre": "Proteccion" } ],
+  "capacidades": [ { "id": 8, "nombre": "Configuracion segura" } ],
+  "preguntas": [ { "id": 14, "orden": 1, "texto": "..." } ] }
 ```
 
-**GET `/controles/tipos`** — lista de `tipo_control` distintos, para poblar el filtro.
-
-**POST `/controles`** — HU-005, crea el control y sus vinculos en una transaccion:
+**POST `/controles`** — HU-005, crea el control, sus atributos y sus preguntas en una
+transaccion:
 
 ```json
 {
-  "tipo_control": "Preventivo",
-  "nombre_control": "Cifrado de respaldos",
-  "detalle": "Respaldos cifrados con AES-256 antes de salir del sitio",
-  "integridad": "P",
-  "disponibilidad": "S",
-  "confidencialidad": "P",
-  "normas": [1, 3]
+  "norma_id": 1,
+  "dominio_norma_id": 4,
+  "codigo": "8.25",
+  "nombre": "Ciclo de vida de desarrollo seguro",
+  "proposito": "Garantizar que la seguridad se disena e implementa en el ciclo de vida.",
+  "descripcion": "Deben establecerse y aplicarse reglas para el desarrollo seguro.",
+  "peso": 7,
+  "confidencialidad": "Primario",
+  "integridad": "Primario",
+  "disponibilidad": null,
+  "guia": "...",
+  "otra_informacion": null,
+  "tipos": [1],
+  "conceptos": [2],
+  "dominios_seguridad": [2],
+  "capacidades": [7],
+  "preguntas": ["¿Existen reglas escritas de desarrollo seguro?"]
 }
 ```
 
-`normas` es obligatorio y debe traer al menos un id. Si algun id no existe, se revierte todo
-y responde 422.
+`tipos` es obligatorio y debe traer al menos un id. Si algun id no existe, se revierte todo
+y responde 422. `preguntas` es un arreglo de textos: el orden del arreglo es el orden de las
+preguntas.
 
-**PUT `/controles/{id}`** — HU-010, parcial: solo se modifican los campos enviados. Si se
-incluye `normas`, reemplaza el conjunto completo de vinculos (`[]` los borra todos). Las
-respuestas ya registradas en cuestionarios anteriores no se tocan.
+**PUT `/controles/{id}`** — HU-010, parcial: solo se modifican los campos enviados. Cada
+arreglo de atributos que se envie reemplaza el conjunto completo (`[]` lo vacia). `preguntas`
+sincroniza por posicion: actualiza las existentes, agrega las nuevas y elimina las sobrantes;
+si una pregunta sobrante ya tiene respuestas, responde 409 y no borra nada.
 
-**DELETE `/controles/{id}`** — 409 si el control ya tiene respuestas.
+**DELETE `/controles/{id}`** — 409 si alguna de sus preguntas ya tiene respuestas.
 
 ## Cuestionarios — HU-006, HU-016, HU-017
 
@@ -149,39 +173,45 @@ respuestas ya registradas en cuestionarios anteriores no se tocan.
 cuerpo porque el login es implementacion futura.
 
 **GET `/cuestionarios/{id}`** — HU-017, detalle completo con el arreglo `respuestas`, cada una
-con los datos del control y los cuatro campos de la respuesta.
+con la pregunta, su control y los cuatro campos de la respuesta.
 
-Todo cuestionario incluye `respuestas_registradas`, `controles_en_catalogo` y `avance`
-(0–1). No hay campo `estado`: ver `docs/GAPS.md`.
+Todo cuestionario incluye `respuestas_registradas`, `preguntas_en_catalogo` y `avance`
+(0–1). No hay campo `estado`: ver `docs/Gaps.md`.
 
 **DELETE `/cuestionarios/{id}`** — borra el cuestionario y sus respuestas en una transaccion.
 
 ## Respuestas — HU-013, HU-014
 
-**PUT `/cuestionarios/{id}/respuestas/{controlId}`** — una sola ruta cubre crear y editar
+Se responde **por pregunta**, no por control: un control con cinco preguntas genera cinco
+respuestas.
+
+**PUT `/cuestionarios/{id}/respuestas/{preguntaId}`** — una sola ruta cubre crear y editar
 (idempotente): 201 la primera vez, 200 en adelante.
 
 ```json
-{ "respuesta": "Si", "documentado": "si", "repetible": "si", "evidencia": "no" }
+{ "cumple": "Sí", "documentado": "Sí", "repetible": "No", "evidencia": "Sí" }
 ```
+
+Cuando `cumple` no es `Sí`, los otros tres se envian como `N/A`: el formulario solo los
+pregunta cuando la respuesta es afirmativa.
 
 **POST `/cuestionarios/{id}/respuestas`** — guarda el cuestionario completo en una
 transaccion. Si una fila falla, no se guarda ninguna:
 
 ```json
 { "respuestas": [
-    { "control_id": 1, "respuesta": "Si",  "documentado": "si", "repetible": "si", "evidencia": "si" },
-    { "control_id": 2, "respuesta": "No",  "documentado": "no", "repetible": "si", "evidencia": "no" },
-    { "control_id": 3, "respuesta": "N-A", "documentado": "no", "repetible": "no", "evidencia": "no" }
+    { "pregunta_id": 1, "cumple": "Sí",  "documentado": "Sí", "repetible": "Sí",  "evidencia": "Sí" },
+    { "pregunta_id": 2, "cumple": "No",  "documentado": "N/A", "repetible": "N/A", "evidencia": "N/A" },
+    { "pregunta_id": 3, "cumple": "N/A", "documentado": "N/A", "repetible": "N/A", "evidencia": "N/A" }
 ] }
 ```
 
 Responde `{ "guardadas": 3, "creadas": 3, "actualizadas": 0 }`.
 
-**GET `/cuestionarios/{id}/respuestas/pendientes`** — controles del catalogo que aun no tienen
-respuesta en ese cuestionario. Le sirve al frontend para armar la pantalla del cuestionario.
+**GET `/cuestionarios/{id}/respuestas/pendientes`** — preguntas del catalogo que aun no tienen
+respuesta en ese cuestionario, con el codigo y el nombre de su control.
 
-**GET / DELETE `/cuestionarios/{id}/respuestas/{controlId}`** — consulta o borra una respuesta.
+**GET / DELETE `/cuestionarios/{id}/respuestas/{preguntaId}`** — consulta o borra una respuesta.
 
 ## Reportes — HU-018
 

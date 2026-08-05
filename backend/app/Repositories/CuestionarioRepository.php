@@ -25,12 +25,12 @@ final class CuestionarioRepository extends BaseRepository
                        o.nombre AS organizacion,
                        e.id     AS evaluador_id,
                        e.nombre AS evaluador,
-                       COUNT(rc.id) AS respuestas_registradas,
-                       (SELECT COUNT(*) FROM Controles) AS controles_en_catalogo
+                       COUNT(r.id) AS respuestas_registradas,
+                       (SELECT COUNT(*) FROM Preguntas) AS preguntas_en_catalogo
                   FROM Cuestionarios_Control_Interno c
                   JOIN Organizaciones o ON o.id = c.organizacion_id
                   JOIN Evaluadores  e ON e.id = c.evaluador_id
-                  LEFT JOIN Respuestas_Controles rc ON rc.cuestionario_id = c.id'
+                  LEFT JOIN Respuestas r ON r.cuestionario_id = c.id'
             . $where
             . ' GROUP BY c.id, c.fecha, o.id, o.nombre, e.id, e.nombre
                 ORDER BY c.fecha DESC, c.id DESC
@@ -90,9 +90,9 @@ final class CuestionarioRepository extends BaseRepository
                     o.nombre AS organizacion,
                     e.id     AS evaluador_id,
                     e.nombre AS evaluador,
-                    (SELECT COUNT(*) FROM Respuestas_Controles r WHERE r.cuestionario_id = c.id)
+                    (SELECT COUNT(*) FROM Respuestas r WHERE r.cuestionario_id = c.id)
                         AS respuestas_registradas,
-                    (SELECT COUNT(*) FROM Controles) AS controles_en_catalogo
+                    (SELECT COUNT(*) FROM Preguntas) AS preguntas_en_catalogo
                FROM Cuestionarios_Control_Interno c
                JOIN Organizaciones o ON o.id = c.organizacion_id
                JOIN Evaluadores  e ON e.id = c.evaluador_id
@@ -107,38 +107,37 @@ final class CuestionarioRepository extends BaseRepository
         return $this->hidratar($fila);
     }
 
-    /**
-     * HU-017: detalle completo con todas las respuestas registradas.
-     *
-     * @return array<string,mixed>
-     */
     public function detalle(int $id): array
     {
         $cuestionario = $this->buscarPorId($id);
 
         $cuestionario['respuestas'] = array_map(
             static function (array $f): array {
-                $f['id']         = (int) $f['id'];
-                $f['control_id'] = (int) $f['control_id'];
+                foreach (['id', 'pregunta_id', 'orden', 'control_id'] as $columna) {
+                    $f[$columna] = (int) $f[$columna];
+                }
                 return $f;
             },
             $this->run(
-                'SELECT rc.id,
-                        ct.id  AS control_id,
-                        ct.tipo_control,
-                        ct.nombre_control,
-                        ct.detalle,
+                'SELECT r.id,
+                        r.pregunta_id,
+                        p.orden,
+                        p.texto,
+                        ct.id AS control_id,
+                        ct.codigo,
+                        ct.nombre AS control,
                         ct.integridad,
                         ct.disponibilidad,
                         ct.confidencialidad,
-                        rc.respuesta,
-                        rc.documentado,
-                        rc.repetible,
-                        rc.evidencia
-                   FROM Respuestas_Controles rc
-                   JOIN Controles ct ON ct.id = rc.control_id
-                  WHERE rc.cuestionario_id = :id
-                  ORDER BY ct.tipo_control, ct.nombre_control',
+                        r.cumple,
+                        r.documentado,
+                        r.repetible,
+                        r.evidencia
+                   FROM Respuestas r
+                   JOIN Preguntas p ON p.id = r.pregunta_id
+                   JOIN Controles ct ON ct.id = p.control_id
+                  WHERE r.cuestionario_id = :id
+                  ORDER BY LENGTH(ct.codigo), ct.codigo, p.orden',
                 ['id' => $id]
             )->fetchAll()
         );
@@ -205,7 +204,7 @@ final class CuestionarioRepository extends BaseRepository
         $this->assertExists('Cuestionarios_Control_Interno', $id, 'el cuestionario');
 
         \CloudCR\Core\Database::transaction(function () use ($id): void {
-            $this->run('DELETE FROM Respuestas_Controles WHERE cuestionario_id = :id', ['id' => $id]);
+            $this->run('DELETE FROM Respuestas WHERE cuestionario_id = :id', ['id' => $id]);
             $this->run('DELETE FROM Cuestionarios_Control_Interno WHERE id = :id', ['id' => $id]);
         });
     }
@@ -220,12 +219,10 @@ final class CuestionarioRepository extends BaseRepository
         $fila['organizacion_id']        = (int) $fila['organizacion_id'];
         $fila['evaluador_id']           = (int) $fila['evaluador_id'];
         $fila['respuestas_registradas'] = (int) $fila['respuestas_registradas'];
-        $fila['controles_en_catalogo']  = (int) $fila['controles_en_catalogo'];
+        $fila['preguntas_en_catalogo']  = (int) $fila['preguntas_en_catalogo'];
 
-        // El esquema no tiene columna "estado" (ver docs/GAPS.md), asi que el avance
-        // se expone como conteo y no como estado persistido.
-        $fila['avance'] = $fila['controles_en_catalogo'] > 0
-            ? round($fila['respuestas_registradas'] / $fila['controles_en_catalogo'], 4)
+        $fila['avance'] = $fila['preguntas_en_catalogo'] > 0
+            ? round($fila['respuestas_registradas'] / $fila['preguntas_en_catalogo'], 4)
             : 0.0;
 
         return $fila;

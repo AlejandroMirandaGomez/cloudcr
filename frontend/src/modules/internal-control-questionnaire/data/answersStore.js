@@ -1,5 +1,3 @@
-import controles from '../../../common/data/controles-iso27002.json';
-
 const RESPUESTA_INICIAL = {
   cumple: 'No',
   documentado: 'No',
@@ -7,9 +5,20 @@ const RESPUESTA_INICIAL = {
   evidencia: 'No',
 };
 
-const respuestasPorControl = new Map(
-  controles.map((c) => [c.codigo, c.preguntas.map(() => ({ ...RESPUESTA_INICIAL }))]),
-);
+const respuestasPorControl = new Map();
+
+export function inicializar(codigo, cantidadDePreguntas) {
+  const actuales = respuestasPorControl.get(codigo) ?? [];
+  if (actuales.length === cantidadDePreguntas) return actuales;
+
+  const siguientes = Array.from(
+    { length: cantidadDePreguntas },
+    (_, i) => actuales[i] ?? { ...RESPUESTA_INICIAL },
+  );
+  respuestasPorControl.set(codigo, siguientes);
+
+  return siguientes;
+}
 
 export function getRespuestas(codigo) {
   return respuestasPorControl.get(codigo) ?? [];

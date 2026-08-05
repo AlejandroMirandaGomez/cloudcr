@@ -7,42 +7,34 @@ namespace CloudCR\Repositories;
 use CloudCR\Core\Database;
 use CloudCR\Core\HttpException;
 
-/** HU-013, HU-014. Tabla Respuestas_Controles. */
 final class RespuestaRepository extends BaseRepository
 {
-    /**
-     * HU-013 y HU-014 en una sola operacion idempotente: aprovecha la restriccion
-     * UNIQUE (cuestionario_id, control_id) para insertar o actualizar segun corresponda.
-     *
-     * @param array{respuesta:string,documentado:string,repetible:string,evidencia:string} $datos
-     * @return array{creado:bool,respuesta:array<string,mixed>}
-     */
-    public function guardar(int $cuestionarioId, int $controlId, array $datos): array
+    public function guardar(int $cuestionarioId, int $preguntaId, array $datos): array
     {
         $this->assertExists('Cuestionarios_Control_Interno', $cuestionarioId, 'el cuestionario');
-        $this->assertExists('Controles', $controlId, 'el control');
+        $this->assertExists('Preguntas', $preguntaId, 'la pregunta');
 
-        $existia = $this->existe($cuestionarioId, $controlId);
+        $existia = $this->existe($cuestionarioId, $preguntaId);
 
         $this->run(
-            'INSERT INTO Respuestas_Controles
-                 (cuestionario_id, control_id, respuesta, documentado, repetible, evidencia)
+            'INSERT INTO Respuestas
+                 (cuestionario_id, pregunta_id, cumple, documentado, repetible, evidencia)
              VALUES
                  (:cuestionario_id,
-                  :control_id,
-                  CAST(:respuesta   AS respuesta_control),
-                  CAST(:documentado AS si_no),
-                  CAST(:repetible   AS si_no),
-                  CAST(:evidencia   AS si_no))
-             ON CONFLICT (cuestionario_id, control_id) DO UPDATE
-                SET respuesta   = EXCLUDED.respuesta,
+                  :pregunta_id,
+                  CAST(:cumple      AS respuesta_pregunta),
+                  CAST(:documentado AS respuesta_pregunta),
+                  CAST(:repetible   AS respuesta_pregunta),
+                  CAST(:evidencia   AS respuesta_pregunta))
+             ON CONFLICT (cuestionario_id, pregunta_id) DO UPDATE
+                SET cumple      = EXCLUDED.cumple,
                     documentado = EXCLUDED.documentado,
                     repetible   = EXCLUDED.repetible,
                     evidencia   = EXCLUDED.evidencia',
             [
                 'cuestionario_id' => $cuestionarioId,
-                'control_id'      => $controlId,
-                'respuesta'       => $datos['respuesta'],
+                'pregunta_id'     => $preguntaId,
+                'cumple'          => $datos['cumple'],
                 'documentado'     => $datos['documentado'],
                 'repetible'       => $datos['repetible'],
                 'evidencia'       => $datos['evidencia'],
@@ -51,27 +43,20 @@ final class RespuestaRepository extends BaseRepository
 
         return [
             'creado'    => !$existia,
-            'respuesta' => $this->buscar($cuestionarioId, $controlId),
+            'respuesta' => $this->buscar($cuestionarioId, $preguntaId),
         ];
     }
 
-    /**
-     * Guardado por lotes: el cuestionario completo en una transaccion.
-     * Si una sola fila falla, no queda nada a medias.
-     *
-     * @param list<array{control_id:int,respuesta:string,documentado:string,repetible:string,evidencia:string}> $filas
-     * @return array{guardadas:int,creadas:int,actualizadas:int}
-     */
     public function guardarLote(int $cuestionarioId, array $filas): array
     {
         $this->assertExists('Cuestionarios_Control_Interno', $cuestionarioId, 'el cuestionario');
 
         return Database::transaction(function () use ($cuestionarioId, $filas): array {
-            $creadas = 0;
+            $creadas      = 0;
             $actualizadas = 0;
 
             foreach ($filas as $fila) {
-                $resultado = $this->guardar($cuestionarioId, (int) $fila['control_id'], $fila);
+                $resultado = $this->guardar($cuestionarioId, (int) $fila['pregunta_id'], $fila);
                 $resultado['creado'] ? $creadas++ : $actualizadas++;
             }
 
@@ -83,92 +68,94 @@ final class RespuestaRepository extends BaseRepository
         });
     }
 
-    /** @return array<string,mixed> */
-    public function buscar(int $cuestionarioId, int $controlId): array
+    public function buscar(int $cuestionarioId, int $preguntaId): array
     {
         $fila = $this->run(
-            'SELECT rc.id,
-                    rc.cuestionario_id,
-                    rc.control_id,
-                    ct.nombre_control,
-                    rc.respuesta,
-                    rc.documentado,
-                    rc.repetible,
-                    rc.evidencia
-               FROM Respuestas_Controles rc
-               JOIN Controles ct ON ct.id = rc.control_id
-              WHERE rc.cuestionario_id = :cuestionario_id
-                AND rc.control_id = :control_id',
-            ['cuestionario_id' => $cuestionarioId, 'control_id' => $controlId]
+            'SELECT r.id,
+                    r.cuestionario_id,
+                    r.pregunta_id,
+                    p.orden,
+                    p.texto,
+                    p.control_id,
+                    c.codigo,
+                    c.nombre AS control,
+                    r.cumple,
+                    r.documentado,
+                    r.repetible,
+                    r.evidencia
+               FROM Respuestas r
+               JOIN Preguntas p ON p.id = r.pregunta_id
+               JOIN Controles c ON c.id = p.control_id
+              WHERE r.cuestionario_id = :cuestionario_id
+                AND r.pregunta_id = :pregunta_id',
+            ['cuestionario_id' => $cuestionarioId, 'pregunta_id' => $preguntaId]
         )->fetch();
 
         if ($fila === false) {
             throw new HttpException(404, sprintf(
-                'El control %d no tiene respuesta registrada en el cuestionario %d.',
-                $controlId,
+                'La pregunta %d no tiene respuesta registrada en el cuestionario %d.',
+                $preguntaId,
                 $cuestionarioId
             ));
         }
 
-        $fila['id']              = (int) $fila['id'];
-        $fila['cuestionario_id'] = (int) $fila['cuestionario_id'];
-        $fila['control_id']      = (int) $fila['control_id'];
-
-        return $fila;
+        return $this->hidratar($fila);
     }
 
-    private function existe(int $cuestionarioId, int $controlId): bool
-    {
-        return $this->run(
-            'SELECT 1 FROM Respuestas_Controles
-              WHERE cuestionario_id = :cuestionario_id AND control_id = :control_id',
-            ['cuestionario_id' => $cuestionarioId, 'control_id' => $controlId]
-        )->fetchColumn() !== false;
-    }
-
-    /**
-     * Controles del catalogo que todavia no tienen respuesta en este cuestionario.
-     * Le sirve al frontend para armar la pantalla del cuestionario.
-     *
-     * @return list<array<string,mixed>>
-     */
     public function pendientes(int $cuestionarioId): array
     {
         $this->assertExists('Cuestionarios_Control_Interno', $cuestionarioId, 'el cuestionario');
 
         return array_map(
-            static function (array $f): array {
-                $f['id'] = (int) $f['id'];
-                return $f;
-            },
+            [$this, 'hidratar'],
             $this->run(
-                'SELECT ct.id,
-                        ct.tipo_control,
-                        ct.nombre_control,
-                        ct.detalle,
-                        ct.integridad,
-                        ct.disponibilidad,
-                        ct.confidencialidad
-                   FROM Controles ct
+                'SELECT p.id,
+                        p.orden,
+                        p.texto,
+                        p.control_id,
+                        c.codigo,
+                        c.nombre AS control
+                   FROM Preguntas p
+                   JOIN Controles c ON c.id = p.control_id
                   WHERE NOT EXISTS (
-                            SELECT 1 FROM Respuestas_Controles rc
-                             WHERE rc.control_id = ct.id
-                               AND rc.cuestionario_id = :id
+                            SELECT 1 FROM Respuestas r
+                             WHERE r.pregunta_id = p.id
+                               AND r.cuestionario_id = :id
                         )
-                  ORDER BY ct.tipo_control, ct.nombre_control',
+                  ORDER BY LENGTH(c.codigo), c.codigo, p.orden',
                 ['id' => $cuestionarioId]
             )->fetchAll()
         );
     }
 
-    public function eliminar(int $cuestionarioId, int $controlId): void
+    public function eliminar(int $cuestionarioId, int $preguntaId): void
     {
-        $this->buscar($cuestionarioId, $controlId);
+        $this->buscar($cuestionarioId, $preguntaId);
 
         $this->run(
-            'DELETE FROM Respuestas_Controles
-              WHERE cuestionario_id = :cuestionario_id AND control_id = :control_id',
-            ['cuestionario_id' => $cuestionarioId, 'control_id' => $controlId]
+            'DELETE FROM Respuestas
+              WHERE cuestionario_id = :cuestionario_id AND pregunta_id = :pregunta_id',
+            ['cuestionario_id' => $cuestionarioId, 'pregunta_id' => $preguntaId]
         );
+    }
+
+    private function existe(int $cuestionarioId, int $preguntaId): bool
+    {
+        return $this->run(
+            'SELECT 1 FROM Respuestas
+              WHERE cuestionario_id = :cuestionario_id AND pregunta_id = :pregunta_id',
+            ['cuestionario_id' => $cuestionarioId, 'pregunta_id' => $preguntaId]
+        )->fetchColumn() !== false;
+    }
+
+    private function hidratar(array $fila): array
+    {
+        foreach (['id', 'cuestionario_id', 'pregunta_id', 'orden', 'control_id'] as $columna) {
+            if (isset($fila[$columna])) {
+                $fila[$columna] = (int) $fila[$columna];
+            }
+        }
+
+        return $fila;
     }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use CloudCR\Controllers\AuthController;
+use CloudCR\Controllers\CatalogoController;
 use CloudCR\Controllers\ControlController;
 use CloudCR\Controllers\CuestionarioController;
 use CloudCR\Controllers\EvaluadorController;
@@ -19,6 +20,7 @@ $auth           = new AuthController();
 $organizaciones = new OrganizacionController();
 $evaluadores    = new EvaluadorController();
 $normas         = new NormaController();
+$catalogos      = new CatalogoController();
 $controles      = new ControlController();
 $cuestionarios  = new CuestionarioController();
 $respuestas     = new RespuestaController();
@@ -62,9 +64,11 @@ $router->get('/normas/{id}', [$normas, 'show']);
 $router->put('/normas/{id}', [$normas, 'update']);
 $router->delete('/normas/{id}', [$normas, 'destroy']);
 
+// ------------------------------- Catalogos fijos de la norma (ISO/IEC 27002)
+$router->get('/catalogos', [$catalogos, 'index']);
+
 // ------------------------------------ HU-005, HU-010, HU-012 Controles
 $router->get('/controles', [$controles, 'index']);
-$router->get('/controles/tipos', [$controles, 'tipos']);
 $router->post('/controles', [$controles, 'store']);
 $router->get('/controles/{id}', [$controles, 'show']);
 $router->put('/controles/{id}', [$controles, 'update']);
@@ -80,9 +84,9 @@ $router->delete('/cuestionarios/{id}', [$cuestionarios, 'destroy']);
 // ------------------------------------- HU-013, HU-014 Respuestas
 $router->get('/cuestionarios/{id}/respuestas/pendientes', [$respuestas, 'pendientes']);
 $router->post('/cuestionarios/{id}/respuestas', [$respuestas, 'guardarLote']);
-$router->get('/cuestionarios/{id}/respuestas/{controlId}', [$respuestas, 'show']);
-$router->put('/cuestionarios/{id}/respuestas/{controlId}', [$respuestas, 'guardar']);
-$router->delete('/cuestionarios/{id}/respuestas/{controlId}', [$respuestas, 'destroy']);
+$router->get('/cuestionarios/{id}/respuestas/{preguntaId}', [$respuestas, 'show']);
+$router->put('/cuestionarios/{id}/respuestas/{preguntaId}', [$respuestas, 'guardar']);
+$router->delete('/cuestionarios/{id}/respuestas/{preguntaId}', [$respuestas, 'destroy']);
 
 // -------------------------------------------- HU-018 Reportes
 $router->get('/cuestionarios/{id}/resumen', [$reportes, 'resumen']);

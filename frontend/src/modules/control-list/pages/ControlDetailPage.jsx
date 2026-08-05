@@ -7,16 +7,16 @@ import { getControl } from '../services/controles.js';
 const BACK_TO = '/control-list';
 
 export default function ControlDetailPage() {
-  const { codigo } = useParams();
+  const { id } = useParams();
   const [control, setControl] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getControl(codigo)
+    getControl(id)
       .then(setControl)
       .catch(() => setControl(null))
       .finally(() => setLoading(false));
-  }, [codigo]);
+  }, [id]);
 
   if (loading) {
     return (
@@ -29,7 +29,7 @@ export default function ControlDetailPage() {
   return (
     <ControlDetail
       control={control}
-      codigo={codigo}
+      codigo={control?.codigo ?? id}
       backTo={BACK_TO}
       backLabel="Volver a la lista de controles"
     />

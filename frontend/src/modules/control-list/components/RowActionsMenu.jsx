@@ -6,7 +6,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useAuth } from '../../../common/context/AuthContext.jsx';
 
-export default function RowActionsMenu({ codigo }) {
+export default function RowActionsMenu({ id }) {
   const navigate = useNavigate();
   const { session } = useAuth();
   const puedeEditar = session?.rol === 'evaluador';
@@ -19,12 +19,12 @@ export default function RowActionsMenu({ codigo }) {
 
   const handleEditar = () => {
     handleClose();
-    navigate(`/control-list/${codigo}/editar`);
+    navigate(`/control-list/${id}/editar`);
   };
 
   const handleVerDetalle = () => {
     handleClose();
-    navigate(`/control-list/${codigo}`);
+    navigate(`/control-list/${id}`);
   };
 
   return (

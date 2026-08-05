@@ -24,7 +24,7 @@ const columns = [
   {
     id: 'avance',
     header: 'Avance',
-    accessorFn: (row) => `${row.respuestas_registradas}/${row.controles_en_catalogo}`,
+    accessorFn: (row) => `${row.respuestas_registradas}/${row.preguntas_en_catalogo}`,
     size: 120,
   },
 ];
