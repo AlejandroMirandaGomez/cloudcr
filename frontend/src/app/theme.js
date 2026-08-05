@@ -15,7 +15,7 @@ export const theme = createTheme({
         contrastText: '#ffffff',
     },
     background: {
-        default: '#f8f5ff',
+        default: '#ece8f7',
         paper: '#ffffff',
     },
   },
@@ -26,7 +26,7 @@ export const theme = createTheme({
   components: {
     MuiButton: {
       styleOverrides: {
-        root: { textTransform: 'none', fontWeight: 600 },
+        root: { textTransform: 'none', fontWeight: 600, borderRadius: 999 },
       },
     },
     MuiChip: {

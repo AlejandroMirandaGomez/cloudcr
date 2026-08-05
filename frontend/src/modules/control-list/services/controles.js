@@ -31,3 +31,20 @@ export function getControles(params = {}) {
 export function getControl(id) {
   return api.get(`/controles/${id}`).then(mapearControl);
 }
+
+export function updateControl(id, { nombre, tipo, descripcion, integridad, disponibilidad, confidencialidad }) {
+  return api.put(`/controles/${id}`, {
+    nombre_control: nombre,
+    tipo_control: tipo,
+    detalle: descripcion,
+    integridad: nivelInverso(integridad),
+    disponibilidad: nivelInverso(disponibilidad),
+    confidencialidad: nivelInverso(confidencialidad),
+  }).then(mapearControl);
+}
+
+function nivelInverso(valor) {
+  if (valor === 'Primario') return 'P';
+  if (valor === 'Secundario') return 'S';
+  return 'N-A';
+}

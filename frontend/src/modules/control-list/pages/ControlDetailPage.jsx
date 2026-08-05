@@ -1,12 +1,30 @@
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Box, CircularProgress } from '@mui/material';
 import ControlDetail from '../../../common/components/control-detail/ControlDetail.jsx';
-import controles from '../../../common/data/controles-iso27002.json';
+import { getControl } from '../services/controles.js';
 
 const BACK_TO = '/control-list';
 
 export default function ControlDetailPage() {
   const { codigo } = useParams();
-  const control = controles.find((c) => c.codigo === codigo);
+  const [control, setControl] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getControl(codigo)
+      .then(setControl)
+      .catch(() => setControl(null))
+      .finally(() => setLoading(false));
+  }, [codigo]);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <ControlDetail

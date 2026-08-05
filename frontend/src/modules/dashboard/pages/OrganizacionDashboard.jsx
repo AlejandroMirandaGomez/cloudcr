@@ -13,6 +13,7 @@ import { colorDeCumplimiento } from '../lib/cumplimiento.js';
 import { useAuth } from '../../../common/context/AuthContext.jsx';
 import { getHistorialOrganizacion } from '../services/dashboard.js';
 import { getResumen, getMapaCalor, getHallazgos } from '../../internal-control-questionnaire/services/cuestionarios.js';
+import { heroBackgroundSx } from '../../../common/styles/hero.js';
 
 const DIMENSION_LABEL = {
   confidencialidad: 'Confidencialidad',
@@ -81,14 +82,24 @@ export default function OrganizacionDashboard() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>
-        {session.nombre}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Panel de la organización
-      </Typography>
+    <Box>
+      <Box
+        sx={{
+          ...heroBackgroundSx,
+          color: '#1a1a2e',
+          py: { xs: 4, md: 6 },
+          px: 3,
+        }}
+      >
+        <Typography variant="h4" sx={{ fontWeight: 800, position: 'relative' }}>
+          {session.nombre}
+        </Typography>
+        <Typography variant="body1" sx={{ opacity: 0.75, position: 'relative' }}>
+          Panel de la organización
+        </Typography>
+      </Box>
 
+      <Box sx={{ p: 3 }}>
       {historial.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 4, borderRadius: 2, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
@@ -182,6 +193,7 @@ export default function OrganizacionDashboard() {
           />
         </>
       )}
+      </Box>
     </Box>
   );
 }

@@ -13,6 +13,9 @@ const ControlListPage = lazy(() => import('../modules/control-list/pages/Control
 const ControlListDetailPage = lazy(() =>
   import('../modules/control-list/pages/ControlDetailPage.jsx'),
 );
+const ControlEditPage = lazy(() =>
+  import('../modules/control-list/pages/ControlEditPage.jsx'),
+);
 const InternalControlQuestionnairePage = lazy(() =>
   import('../modules/internal-control-questionnaire/pages/InternalControlQuestionnairePage.jsx'),
 );
@@ -57,6 +60,10 @@ export const router = createBrowserRouter([
         element: <Suspense fallback={null}><ControlListDetailPage /></Suspense>,
       },
       // Rutas protegidas — requieren login
+      {
+        path: 'control-list/:codigo/editar',
+        element: <Protected allowedRoles={['evaluador']}><ControlEditPage /></Protected>,
+      },
       {
         path: 'panel',
         element: <Protected><DashboardPage /></Protected>,

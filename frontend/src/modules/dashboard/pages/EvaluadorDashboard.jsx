@@ -10,6 +10,7 @@ import Table from '../../../common/components/basic-table/Table.jsx';
 import StatCard from '../components/StatCard.jsx';
 import { useAuth } from '../../../common/context/AuthContext.jsx';
 import { getCuestionarios } from '../../internal-control-questionnaire/services/cuestionarios.js';
+import { heroBackgroundSx } from '../../../common/styles/hero.js';
 
 function esDelMesActual(fechaISO) {
   const fecha = new Date(fechaISO);
@@ -45,14 +46,24 @@ export default function EvaluadorDashboard() {
   const esteMes = cuestionarios.filter((c) => esDelMesActual(c.fecha)).length;
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>
-        Hola, {session.nombre}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Panel del evaluador
-      </Typography>
+    <Box>
+      <Box
+        sx={{
+          ...heroBackgroundSx,
+          color: '#1a1a2e',
+          py: { xs: 4, md: 6 },
+          px: 3,
+        }}
+      >
+        <Typography variant="h4" sx={{ fontWeight: 800, position: 'relative' }}>
+          Hola, {session.nombre}
+        </Typography>
+        <Typography variant="body1" sx={{ opacity: 0.75, position: 'relative' }}>
+          Panel del evaluador
+        </Typography>
+      </Box>
 
+      <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, mb: 3 }}>
         <StatCard icon={<AssignmentIcon />} label="Cuestionarios realizados" value={cuestionarios.length} />
         <StatCard icon={<ApartmentIcon />} label="Organizaciones evaluadas" value={organizacionesEvaluadas} />
@@ -96,6 +107,7 @@ export default function EvaluadorDashboard() {
           fillToBottom={false}
         />
       )}
+      </Box>
     </Box>
   );
 }

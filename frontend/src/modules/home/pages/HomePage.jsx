@@ -9,6 +9,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import { useAuth } from '../../../common/context/AuthContext.jsx';
+import { heroBackgroundSx } from '../../../common/styles/hero.js';
 
 const SERVICIOS = [
   {
@@ -72,19 +73,34 @@ export default function HomePage() {
       </Box>
 
       {/* Hero */}
-      <Box sx={{ bgcolor: 'primary.main', color: 'white', py: { xs: 6, md: 10 }, px: 3, textAlign: 'center' }}>
-        <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>
+      <Box
+        sx={{
+          ...heroBackgroundSx,
+          color: '#1a1a2e',
+          py: { xs: 6, md: 10 },
+          px: 3,
+          textAlign: 'center',
+        }}
+      >
+        <Typography variant="h3" sx={{ fontWeight: 800, mb: 2, position: 'relative' }}>
           CloudCR
         </Typography>
-        <Typography variant="h6" sx={{ fontWeight: 400, opacity: 0.9, maxWidth: 600, mx: 'auto', mb: 4 }}>
+        <Typography
+          variant="h6"
+          sx={{ fontWeight: 400, opacity: 0.75, maxWidth: 600, mx: 'auto', mb: 4, position: 'relative' }}
+        >
           Evaluación del riesgo en administración de bases de datos basada en ISO/IEC 27002
         </Typography>
         {!session && (
           <Button
-            variant="outlined"
+            variant="contained"
             size="large"
             onClick={() => navigate('/login')}
-            sx={{ color: 'white', borderColor: 'white', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
+            sx={{
+              position: 'relative',
+              bgcolor: '#14142b',
+              '&:hover': { bgcolor: '#000' },
+            }}
           >
             Iniciar sesión
           </Button>
