@@ -79,14 +79,16 @@ export default function HomePage() {
         <Typography variant="h6" sx={{ fontWeight: 400, opacity: 0.9, maxWidth: 600, mx: 'auto', mb: 4 }}>
           Evaluación del riesgo en administración de bases de datos basada en ISO/IEC 27002
         </Typography>
-        <Button
-          variant="outlined"
-          size="large"
-          onClick={() => navigate('/login')}
-          sx={{ color: 'white', borderColor: 'white', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
-        >
-          Iniciar sesión
-        </Button>
+        {!session && (
+          <Button
+            variant="outlined"
+            size="large"
+            onClick={() => navigate('/login')}
+            sx={{ color: 'white', borderColor: 'white', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
+          >
+            Iniciar sesión
+          </Button>
+        )}
       </Box>
 
       {/* Servicios */}

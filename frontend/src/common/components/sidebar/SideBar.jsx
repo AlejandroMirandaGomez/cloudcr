@@ -9,6 +9,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import HomeIcon from '@mui/icons-material/Home';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth } from '../../context/AuthContext.jsx';
 
@@ -16,9 +18,16 @@ const DRAWER_WIDTH = 260;
 const COLLAPSED_WIDTH = 56;
 
 const NAV_ITEMS = [
-  { label: 'Inicio', icon: <HomeIcon />, path: '/' },
-  { label: 'Cuestionario de Control Interno', icon: <AssignmentIcon />, path: '/internal-control-questionnaire' },
-  { label: 'Lista de Controles', icon: <ListAltIcon />, path: '/control-list' },
+  { label: 'Inicio', icon: <HomeIcon />, path: '/', show: () => true },
+  { label: 'Mi Panel', icon: <DashboardIcon />, path: '/panel', show: (session) => !!session },
+  { label: 'Editar perfil', icon: <PersonIcon />, path: '/perfil', show: (session) => !!session },
+  {
+    label: 'Cuestionario de Control Interno',
+    icon: <AssignmentIcon />,
+    path: '/internal-control-questionnaire',
+    show: (session) => session?.rol === 'evaluador',
+  },
+  { label: 'Lista de Controles', icon: <ListAltIcon />, path: '/control-list', show: () => true },
 ];
 
 const SERVICES = [
@@ -40,7 +49,7 @@ const SERVICES = [
   },
 ];
 
-const ROL_LABEL = { consultor: 'Consultor', organizacion: 'Organización' };
+const ROL_LABEL = { evaluador: 'Evaluador', organizacion: 'Organización' };
 
 function DrawerContent({ expanded, onClose }) {
   const navigate = useNavigate();
@@ -77,7 +86,7 @@ function DrawerContent({ expanded, onClose }) {
 
       {/* Navegación */}
       <List dense sx={{ px: expanded ? 1 : 0.5, pt: 1 }}>
-        {NAV_ITEMS.map(({ label, icon, path }) => (
+        {NAV_ITEMS.filter((item) => item.show(session)).map(({ label, icon, path }) => (
           <Tooltip key={path} title={expanded ? '' : label} placement="right">
             <ListItemButton
               selected={location.pathname === path}

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use CloudCR\Controllers\AuthController;
 use CloudCR\Controllers\ControlController;
 use CloudCR\Controllers\CuestionarioController;
 use CloudCR\Controllers\EvaluadorController;
@@ -14,6 +15,7 @@ use CloudCR\Core\Router;
 
 $router = new Router();
 
+$auth           = new AuthController();
 $organizaciones = new OrganizacionController();
 $evaluadores    = new EvaluadorController();
 $normas         = new NormaController();
@@ -35,6 +37,9 @@ $router->get('/salud', static function (): void {
     $version = \CloudCR\Core\Database::pdo()->query('SELECT version()')?->fetchColumn();
     Response::ok(['base_de_datos' => 'conectada', 'postgres' => $version]);
 });
+
+// ------------------------------------------------------------ HU-007 Autenticacion
+$router->post('/auth/login', [$auth, 'login']);
 
 // -------------------------------------------------------- HU-001 Organizaciones
 $router->get('/organizaciones', [$organizaciones, 'index']);

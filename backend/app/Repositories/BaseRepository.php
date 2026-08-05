@@ -71,6 +71,8 @@ abstract class BaseRepository
 
         return match (true) {
             str_contains($restriccion, 'organizaciones_nombre') => 'Ya existe una organizacion con ese nombre.',
+            str_contains($restriccion, 'organizaciones_correo') => 'Ya existe una organizacion con ese correo.',
+            str_contains($restriccion, 'evaluadores_correo')    => 'Ya existe un evaluador con ese correo.',
             str_contains($restriccion, 'normas_nombre')         => 'Ya existe una norma con ese nombre.',
             str_contains($restriccion, 'nombre_control')        => 'Ya existe un control con ese nombre.',
             str_contains($restriccion, 'controles_normas')      => 'Ese control ya esta vinculado a esa norma.',
