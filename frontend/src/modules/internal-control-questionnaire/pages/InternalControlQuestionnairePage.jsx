@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, Chip, IconButton, Stack, Tooltip } from '@mui/material';
+import { Box, Button, Chip, CircularProgress, IconButton, Stack, Tooltip } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LaunchIcon from '@mui/icons-material/Launch';
 import Table from '../../../common/components/basic-table/Table.jsx';
 import AuditInfoHeader from '../components/audit-info-header/AuditInfoHeader.jsx';
-import controles from '../../../common/data/controles-iso27002.json';
+import { getControles } from '../../control-list/services/controles.js';
 
 const CHIP_SX = { width: 104, justifyContent: 'center' };
 
@@ -79,6 +79,12 @@ const tableOptions = {
 
 export default function InternalControlQuestionnairePage() {
   const cols = useMemo(() => columns, []);
+  const [controles, setControles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getControles().then(setControles).finally(() => setLoading(false));
+  }, []);
 
   return (
     <Box sx={{ p: 3, pb: 0 }}>
@@ -97,25 +103,31 @@ export default function InternalControlQuestionnairePage() {
         <AuditInfoHeader />
       </Box>
 
-      <Table
-        columns={cols}
-        data={controles}
-        storageKey="internal-control-questionnaire"
-        enableRowActions
-        renderRowActions={({ row }) => (
-          <Tooltip title="Realizar el cuestionario">
-            <IconButton
-              component={RouterLink}
-              to={`/internal-control-questionnaire/${row.original.codigo}/cuestionario`}
-              size="small"
-              aria-label="Realizar el cuestionario"
-            >
-              <LaunchIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        )}
-        tableOptions={tableOptions}
-      />
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Table
+          columns={cols}
+          data={controles}
+          storageKey="internal-control-questionnaire"
+          enableRowActions
+          renderRowActions={({ row }) => (
+            <Tooltip title="Realizar el cuestionario">
+              <IconButton
+                component={RouterLink}
+                to={`/internal-control-questionnaire/${row.original.codigo}/cuestionario`}
+                size="small"
+                aria-label="Realizar el cuestionario"
+              >
+                <LaunchIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          tableOptions={tableOptions}
+        />
+      )}
     </Box>
   );
 }

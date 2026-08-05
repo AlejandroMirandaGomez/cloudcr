@@ -6,8 +6,8 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => getSession());
 
-  const login = async (correo, contrasena) => {
-    const datos = await authLogin(correo, contrasena);
+  const login = async (nombre) => {
+    const datos = await authLogin(nombre);
     setSession(datos);
     return datos;
   };

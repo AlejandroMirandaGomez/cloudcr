@@ -1,33 +1,17 @@
+import { api } from './api.js';
+
 const AUTH_KEY = 'cloudcr.auth';
 
-// ── Simulación del backend ──────────────────────────────────────────────────
-// Cuando tu compañero termine POST /auth/login, reemplazá esta función por:
-//
-//   const res = await fetch('http://localhost:8000/auth/login', {
-//     method: 'POST',
-//     headers: { 'Content-Type': 'application/json' },
-//     body: JSON.stringify({ correo, contrasena }),
-//   });
-//   if (!res.ok) throw new Error('Credenciales incorrectas');
-//   return res.json().then((r) => r.data);
-//
-const USUARIOS_MOCK = [
-  { correo: 'consultor@cloudcr.com', contrasena: '1234', rol: 'consultor',    nombre: 'Juan Pablo Sánchez' },
-  { correo: 'org@cloudcr.com',       contrasena: '1234', rol: 'organizacion', nombre: 'Intel' },
-];
+export async function login(nombre) {
+  const data = await api.get(`/evaluadores?buscar=${encodeURIComponent(nombre)}&limit=1`);
+  const evaluador = Array.isArray(data) ? data[0] : data?.items?.[0];
+  if (!evaluador) throw new Error('Evaluador no encontrado');
 
-async function llamarBackend(correo, contrasena) {
-  const usuario = USUARIOS_MOCK.find(
-    (u) => u.correo === correo && u.contrasena === contrasena,
-  );
-  if (!usuario) throw new Error('Credenciales incorrectas');
-  const { contrasena: _, ...datos } = usuario;
-  return { ...datos, token: 'mock-token-' + datos.rol };
-}
-// ───────────────────────────────────────────────────────────────────────────
-
-export async function login(correo, contrasena) {
-  const datos = await llamarBackend(correo, contrasena);
+  const datos = {
+    id:     evaluador.id,
+    nombre: evaluador.nombre,
+    rol:    'evaluador',
+  };
   localStorage.setItem(AUTH_KEY, JSON.stringify(datos));
   return datos;
 }

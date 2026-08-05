@@ -12,8 +12,7 @@ export default function LoginPage() {
   const location = useLocation();
   const from = location.state?.from ?? '/';
 
-  const [correo, setCorreo] = useState('');
-  const [contrasena, setContrasena] = useState('');
+  const [nombre, setNombre] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +21,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login(correo, contrasena);
+      await login(nombre);
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.message ?? 'Error al iniciar sesión');
@@ -63,23 +62,13 @@ export default function LoginPage() {
 
         <Box component="form" onSubmit={handleSubmit}>
           <TextField
-            label="Correo electrónico"
-            type="email"
+            label="Nombre del evaluador"
+            type="text"
             fullWidth
             required
             size="small"
-            value={correo}
-            onChange={(e) => setCorreo(e.target.value)}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            label="Contraseña"
-            type="password"
-            fullWidth
-            required
-            size="small"
-            value={contrasena}
-            onChange={(e) => setContrasena(e.target.value)}
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
             sx={{ mb: 3 }}
           />
           <Button
