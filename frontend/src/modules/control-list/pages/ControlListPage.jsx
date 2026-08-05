@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, Chip, Stack } from '@mui/material';
+import { Box, Button, Chip, CircularProgress, Stack } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Table from '../../../common/components/basic-table/Table.jsx';
 import RowActionsMenu from '../components/RowActionsMenu.jsx';
-import controles from '../../../common/data/controles-iso27002.json';
+import { getControles } from '../services/controles.js';
 
 const CHIP_SX = { width: 104, justifyContent: 'center' };
 
@@ -78,6 +78,12 @@ const tableOptions = {
 
 export default function ControlListPage() {
   const cols = useMemo(() => columns, []);
+  const [controles, setControles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getControles().then(setControles).finally(() => setLoading(false));
+  }, []);
 
   return (
     <Box sx={{ p: 3, pb: 0 }}>
@@ -92,14 +98,20 @@ export default function ControlListPage() {
         </Button>
       </Box>
 
-      <Table
-        columns={cols}
-        data={controles}
-        storageKey="control-list"
-        enableRowActions
-        renderRowActions={({ row }) => <RowActionsMenu codigo={row.original.codigo} />}
-        tableOptions={tableOptions}
-      />
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Table
+          columns={cols}
+          data={controles}
+          storageKey="control-list"
+          enableRowActions
+          renderRowActions={({ row }) => <RowActionsMenu codigo={row.original.codigo} />}
+          tableOptions={tableOptions}
+        />
+      )}
     </Box>
   );
 }

@@ -19,7 +19,7 @@ import TableHorizontalScrollbar from './TableHorizontalScrollbar.jsx';
 import useFillToBottom, { TOP_GAP, BOTTOM_GAP } from './useFillToBottom.js';
 import { readColumnVisibility, writeColumnVisibility } from '../../lib/storage.js';
 
-const SURFACE = 'hsl(220, 20%, 99%)';
+const SURFACE = '#faf8ff';
 const SURFACE_SHADOW = '0 2px 8px rgba(100, 108, 130, 0.10)';
 const PAPER = '#ffffff';
 const DIVIDER = 'rgba(0, 0, 0, 0.12)';

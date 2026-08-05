@@ -14,6 +14,7 @@ final class OrganizacionRepository extends BaseRepository
     {
         $sql = 'SELECT o.id,
                        o.nombre,
+                       o.correo,
                        COUNT(c.id) AS total_cuestionarios,
                        MAX(c.fecha) AS ultimo_cuestionario
                   FROM Organizaciones o
@@ -25,7 +26,7 @@ final class OrganizacionRepository extends BaseRepository
             $params['buscar'] = '%' . $buscar . '%';
         }
 
-        $sql .= ' GROUP BY o.id, o.nombre
+        $sql .= ' GROUP BY o.id, o.nombre, o.correo
                   ORDER BY o.nombre
                   LIMIT :limit OFFSET :offset';
 
@@ -54,29 +55,48 @@ final class OrganizacionRepository extends BaseRepository
     /** @return array<string,mixed> */
     public function buscarPorId(int $id): array
     {
-        $fila = $this->run('SELECT id, nombre FROM Organizaciones WHERE id = :id', ['id' => $id])->fetch();
+        $fila = $this->run('SELECT id, nombre, correo FROM Organizaciones WHERE id = :id', ['id' => $id])->fetch();
         if ($fila === false) {
             throw HttpException::notFound('la organizacion', $id);
         }
         return $fila;
     }
 
+    /** Incluye el hash de la contrasena; solo para uso interno del login. */
+    public function buscarPorCorreo(string $correo): ?array
+    {
+        $fila = $this->run(
+            'SELECT id, nombre, correo, contrasena_hash FROM Organizaciones WHERE correo = :correo',
+            ['correo' => $correo]
+        )->fetch();
+
+        return $fila === false ? null : $fila;
+    }
+
     /** @return array<string,mixed> */
-    public function crear(string $nombre): array
+    public function crear(string $nombre, string $correo, string $contrasenaHash): array
     {
         return $this->run(
-            'INSERT INTO Organizaciones (nombre) VALUES (:nombre) RETURNING id, nombre',
-            ['nombre' => $nombre]
+            'INSERT INTO Organizaciones (nombre, correo, contrasena_hash)
+             VALUES (:nombre, :correo, :hash)
+             RETURNING id, nombre, correo',
+            ['nombre' => $nombre, 'correo' => $correo, 'hash' => $contrasenaHash]
         )->fetch();
     }
 
     /** @return array<string,mixed> */
-    public function actualizar(int $id, string $nombre): array
+    public function actualizar(int $id, string $nombre, string $correo, ?string $contrasenaHash): array
     {
-        $fila = $this->run(
-            'UPDATE Organizaciones SET nombre = :nombre WHERE id = :id RETURNING id, nombre',
-            ['id' => $id, 'nombre' => $nombre]
-        )->fetch();
+        $sql = 'UPDATE Organizaciones SET nombre = :nombre, correo = :correo';
+        $params = ['id' => $id, 'nombre' => $nombre, 'correo' => $correo];
+
+        if ($contrasenaHash !== null) {
+            $sql .= ', contrasena_hash = :hash';
+            $params['hash'] = $contrasenaHash;
+        }
+        $sql .= ' WHERE id = :id RETURNING id, nombre, correo';
+
+        $fila = $this->run($sql, $params)->fetch();
 
         if ($fila === false) {
             throw HttpException::notFound('la organizacion', $id);

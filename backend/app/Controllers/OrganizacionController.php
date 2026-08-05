@@ -35,10 +35,13 @@ final class OrganizacionController extends BaseController
     public function store(Request $r): void
     {
         $v = new Validator($r->body());
-        $nombre = $v->requiredString('nombre', 150, 3);
+        $nombre     = $v->requiredString('nombre', 150, 3);
+        $correo     = $v->requiredEmail('correo');
+        $contrasena = $v->requiredPassword('contrasena');
         $v->assert();
 
-        $organizacion = $this->repo->crear((string) $nombre);
+        $hash          = password_hash((string) $contrasena, PASSWORD_BCRYPT);
+        $organizacion  = $this->repo->crear((string) $nombre, (string) $correo, $hash);
         Response::created($organizacion, '/organizaciones/' . $organizacion['id']);
     }
 
@@ -46,10 +49,13 @@ final class OrganizacionController extends BaseController
     {
         $v = new Validator($r->body());
         $v->notEmptyBody();
-        $nombre = $v->requiredString('nombre', 150, 3);
+        $nombre     = $v->requiredString('nombre', 150, 3);
+        $correo     = $v->requiredEmail('correo');
+        $contrasena = $v->optionalPassword('contrasena');
         $v->assert();
 
-        Response::ok($this->repo->actualizar($id, (string) $nombre));
+        $hash = $contrasena !== null ? password_hash($contrasena, PASSWORD_BCRYPT) : null;
+        Response::ok($this->repo->actualizar($id, (string) $nombre, (string) $correo, $hash));
     }
 
     public function destroy(Request $r, int $id): void

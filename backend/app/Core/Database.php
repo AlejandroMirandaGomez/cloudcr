@@ -44,6 +44,7 @@ final class Database
                 PDO::ATTR_STRINGIFY_FETCHES  => false,
             ]);
         } catch (PDOException $e) {
+            file_put_contents(__DIR__ . '/../../../error.log', $e->getMessage() . PHP_EOL, FILE_APPEND);
             throw new HttpException(
                 503,
                 'No se pudo conectar a la base de datos.',

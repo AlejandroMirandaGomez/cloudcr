@@ -46,4 +46,9 @@ class HttpException extends RuntimeException
     {
         return new self(409, $mensaje);
     }
+
+    public static function noAutorizado(string $mensaje = 'Credenciales invalidas.'): self
+    {
+        return new self(401, $mensaje);
+    }
 }

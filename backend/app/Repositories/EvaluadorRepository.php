@@ -7,8 +7,7 @@ namespace CloudCR\Repositories;
 use CloudCR\Core\HttpException;
 
 /**
- * Tabla Evaluadores. El registro con aprobacion (HU-002/003) y el login (HU-007)
- * quedan como implementacion futura: la tabla solo tiene id y nombre.
+ * Tabla Evaluadores. Registro, edicion y login (HU-002/003/007) por correo + contrasena.
  */
 final class EvaluadorRepository extends BaseRepository
 {
@@ -18,10 +17,11 @@ final class EvaluadorRepository extends BaseRepository
         $filas = $this->run(
             'SELECT e.id,
                     e.nombre,
+                    e.correo,
                     COUNT(c.id) AS cuestionarios_realizados
                FROM Evaluadores e
                LEFT JOIN Cuestionarios_Control_Interno c ON c.evaluador_id = e.id
-              GROUP BY e.id, e.nombre
+              GROUP BY e.id, e.nombre, e.correo
               ORDER BY e.nombre
               LIMIT :limit OFFSET :offset',
             ['limit' => $limit, 'offset' => $offset]
@@ -41,29 +41,48 @@ final class EvaluadorRepository extends BaseRepository
     /** @return array<string,mixed> */
     public function buscarPorId(int $id): array
     {
-        $fila = $this->run('SELECT id, nombre FROM Evaluadores WHERE id = :id', ['id' => $id])->fetch();
+        $fila = $this->run('SELECT id, nombre, correo FROM Evaluadores WHERE id = :id', ['id' => $id])->fetch();
         if ($fila === false) {
             throw HttpException::notFound('el evaluador', $id);
         }
         return $fila;
     }
 
+    /** Incluye el hash de la contrasena; solo para uso interno del login. */
+    public function buscarPorCorreo(string $correo): ?array
+    {
+        $fila = $this->run(
+            'SELECT id, nombre, correo, contrasena_hash FROM Evaluadores WHERE correo = :correo',
+            ['correo' => $correo]
+        )->fetch();
+
+        return $fila === false ? null : $fila;
+    }
+
     /** @return array<string,mixed> */
-    public function crear(string $nombre): array
+    public function crear(string $nombre, string $correo, string $contrasenaHash): array
     {
         return $this->run(
-            'INSERT INTO Evaluadores (nombre) VALUES (:nombre) RETURNING id, nombre',
-            ['nombre' => $nombre]
+            'INSERT INTO Evaluadores (nombre, correo, contrasena_hash)
+             VALUES (:nombre, :correo, :hash)
+             RETURNING id, nombre, correo',
+            ['nombre' => $nombre, 'correo' => $correo, 'hash' => $contrasenaHash]
         )->fetch();
     }
 
     /** @return array<string,mixed> */
-    public function actualizar(int $id, string $nombre): array
+    public function actualizar(int $id, string $nombre, string $correo, ?string $contrasenaHash): array
     {
-        $fila = $this->run(
-            'UPDATE Evaluadores SET nombre = :nombre WHERE id = :id RETURNING id, nombre',
-            ['id' => $id, 'nombre' => $nombre]
-        )->fetch();
+        $sql = 'UPDATE Evaluadores SET nombre = :nombre, correo = :correo';
+        $params = ['id' => $id, 'nombre' => $nombre, 'correo' => $correo];
+
+        if ($contrasenaHash !== null) {
+            $sql .= ', contrasena_hash = :hash';
+            $params['hash'] = $contrasenaHash;
+        }
+        $sql .= ' WHERE id = :id RETURNING id, nombre, correo';
+
+        $fila = $this->run($sql, $params)->fetch();
 
         if ($fila === false) {
             throw HttpException::notFound('el evaluador', $id);

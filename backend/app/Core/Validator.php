@@ -55,6 +55,66 @@ final class Validator
         return $valor;
     }
 
+    public function requiredEmail(string $campo, int $max = 150): ?string
+    {
+        $valor = $this->data[$campo] ?? null;
+
+        if ($valor === null || (is_string($valor) && trim($valor) === '')) {
+            $this->errores[$campo] = 'Es obligatorio.';
+            return null;
+        }
+        if (!is_string($valor)) {
+            $this->errores[$campo] = 'Debe ser texto.';
+            return null;
+        }
+
+        $valor = trim($valor);
+        if (mb_strlen($valor) > $max) {
+            $this->errores[$campo] = sprintf('No debe exceder %d caracteres.', $max);
+            return null;
+        }
+        if (filter_var($valor, FILTER_VALIDATE_EMAIL) === false) {
+            $this->errores[$campo] = 'Debe ser un correo valido.';
+            return null;
+        }
+
+        return mb_strtolower($valor);
+    }
+
+    public function requiredPassword(string $campo, int $min = 8, int $max = 72): ?string
+    {
+        $valor = $this->data[$campo] ?? null;
+
+        if ($valor === null || $valor === '') {
+            $this->errores[$campo] = 'Es obligatoria.';
+            return null;
+        }
+        if (!is_string($valor)) {
+            $this->errores[$campo] = 'Debe ser texto.';
+            return null;
+        }
+        if (mb_strlen($valor) < $min) {
+            $this->errores[$campo] = sprintf('Debe tener al menos %d caracteres.', $min);
+            return null;
+        }
+        if (mb_strlen($valor) > $max) {
+            $this->errores[$campo] = sprintf('No debe exceder %d caracteres.', $max);
+            return null;
+        }
+
+        return $valor;
+    }
+
+    /** Igual que requiredPassword, pero permite omitir el campo (para PUT sin cambio de clave). */
+    public function optionalPassword(string $campo, int $min = 8, int $max = 72): ?string
+    {
+        $valor = $this->data[$campo] ?? null;
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+        return $this->requiredPassword($campo, $min, $max);
+    }
+
     public function optionalText(string $campo): ?string
     {
         $valor = $this->data[$campo] ?? null;

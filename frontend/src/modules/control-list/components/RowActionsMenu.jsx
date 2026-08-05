@@ -4,9 +4,13 @@ import { IconButton, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/mat
 import SettingsIcon from '@mui/icons-material/Settings';
 import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import { useAuth } from '../../../common/context/AuthContext.jsx';
 
 export default function RowActionsMenu({ codigo }) {
   const navigate = useNavigate();
+  const { session } = useAuth();
+  const puedeEditar = session?.rol === 'evaluador';
+
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
@@ -15,6 +19,7 @@ export default function RowActionsMenu({ codigo }) {
 
   const handleEditar = () => {
     handleClose();
+    navigate(`/control-list/${codigo}/editar`);
   };
 
   const handleVerDetalle = () => {
@@ -35,12 +40,14 @@ export default function RowActionsMenu({ codigo }) {
       </IconButton>
 
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-        <MenuItem onClick={handleEditar}>
-          <ListItemIcon>
-            <EditIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Editar</ListItemText>
-        </MenuItem>
+        {puedeEditar && (
+          <MenuItem onClick={handleEditar}>
+            <ListItemIcon>
+              <EditIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Editar</ListItemText>
+          </MenuItem>
+        )}
         <MenuItem onClick={handleVerDetalle}>
           <ListItemIcon>
             <VisibilityIcon fontSize="small" />

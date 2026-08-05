@@ -10,8 +10,8 @@ use CloudCR\Core\Validator;
 use CloudCR\Repositories\EvaluadorRepository;
 
 /**
- * CRUD basico de evaluadores. El flujo de solicitud/aprobacion (HU-002, HU-003)
- * y el login (HU-007) requieren columnas que el esquema actual no tiene.
+ * CRUD de evaluadores. Registro y edicion por correo + contrasena (HU-002, HU-003).
+ * El login vive en AuthController (HU-007).
  */
 final class EvaluadorController extends BaseController
 {
@@ -37,10 +37,13 @@ final class EvaluadorController extends BaseController
     public function store(Request $r): void
     {
         $v = new Validator($r->body());
-        $nombre = $v->requiredString('nombre', 150, 3);
+        $nombre     = $v->requiredString('nombre', 150, 3);
+        $correo     = $v->requiredEmail('correo');
+        $contrasena = $v->requiredPassword('contrasena');
         $v->assert();
 
-        $evaluador = $this->repo->crear((string) $nombre);
+        $hash      = password_hash((string) $contrasena, PASSWORD_BCRYPT);
+        $evaluador = $this->repo->crear((string) $nombre, (string) $correo, $hash);
         Response::created($evaluador, '/evaluadores/' . $evaluador['id']);
     }
 
@@ -48,9 +51,12 @@ final class EvaluadorController extends BaseController
     {
         $v = new Validator($r->body());
         $v->notEmptyBody();
-        $nombre = $v->requiredString('nombre', 150, 3);
+        $nombre     = $v->requiredString('nombre', 150, 3);
+        $correo     = $v->requiredEmail('correo');
+        $contrasena = $v->optionalPassword('contrasena');
         $v->assert();
 
-        Response::ok($this->repo->actualizar($id, (string) $nombre));
+        $hash = $contrasena !== null ? password_hash($contrasena, PASSWORD_BCRYPT) : null;
+        Response::ok($this->repo->actualizar($id, (string) $nombre, (string) $correo, $hash));
     }
 }
