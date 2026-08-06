@@ -31,8 +31,15 @@ const NAV_ITEMS = [
     icon: <AssignmentIcon />,
     path: '/internal-control-questionnaire',
     show: (session) => session?.rol === 'evaluador',
+    section: 'Productos',
   },
-  { label: 'Lista de Controles', icon: <ListAltIcon />, path: '/control-list', show: () => true },
+  {
+    label: 'Lista de Controles',
+    icon: <ListAltIcon />,
+    path: '/control-list',
+    show: () => true,
+    section: 'Productos',
+  },
 ];
 
 const ROL_LABEL = { evaluador: 'Evaluador', organizacion: 'Organización' };
@@ -76,20 +83,29 @@ function DrawerContent({ onClose }) {
       <Divider />
 
       <List dense sx={{ px: 1, pt: 1, flex: 1, overflowY: 'auto' }}>
-        {NAV_ITEMS.filter((item) => item.show(session)).map(({ label, icon, path }) => (
-          <ListItemButton
-            key={path}
-            selected={location.pathname === path}
-            onClick={() => handleNav(path)}
-            sx={{ borderRadius: 1, mb: 0.5, px: 1.5 }}
-          >
-            <ListItemIcon
-              sx={{ minWidth: 36, color: location.pathname === path ? 'primary.main' : 'inherit' }}
+        {NAV_ITEMS.filter((item) => item.show(session)).map(({ label, icon, path, section }, index, items) => (
+          <Box key={path}>
+            {section && items[index - 1]?.section !== section && (
+              <Typography
+                variant="overline"
+                sx={{ display: 'block', px: 1.5, pt: 1.5, pb: 0.5, fontWeight: 700, color: 'text.secondary' }}
+              >
+                {section}
+              </Typography>
+            )}
+            <ListItemButton
+              selected={location.pathname === path}
+              onClick={() => handleNav(path)}
+              sx={{ borderRadius: 1, mb: 0.5, px: 1.5 }}
             >
-              {icon}
-            </ListItemIcon>
-            <ListItemText primary={label} slotProps={{ primary: { fontSize: '0.875rem', noWrap: true } }} />
-          </ListItemButton>
+              <ListItemIcon
+                sx={{ minWidth: 36, color: location.pathname === path ? 'primary.main' : 'inherit' }}
+              >
+                {icon}
+              </ListItemIcon>
+              <ListItemText primary={label} slotProps={{ primary: { fontSize: '0.875rem', noWrap: true } }} />
+            </ListItemButton>
+          </Box>
         ))}
       </List>
 
