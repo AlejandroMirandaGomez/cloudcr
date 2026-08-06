@@ -170,17 +170,19 @@ export default function Sidebar() {
 
   return (
     <>
-      <Box className="no-print" sx={{ position: 'fixed', top: 12, left: 12, zIndex: 1300 }}>
-        <Tooltip title="Menú">
-          <IconButton
-            onClick={() => setOpen(true)}
-            aria-label="Abrir menú"
-            sx={{ bgcolor: 'background.paper', boxShadow: 2, '&:hover': { bgcolor: 'background.paper' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
+      {!open && (
+        <Box className="no-print" sx={{ position: 'fixed', top: 12, left: 12, zIndex: 1300 }}>
+          <Tooltip title="Menú">
+            <IconButton
+              onClick={() => setOpen(true)}
+              aria-label="Abrir menú"
+              sx={{ bgcolor: 'background.paper', boxShadow: 2, '&:hover': { bgcolor: 'background.paper' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
 
       <Drawer
         variant="temporary"
