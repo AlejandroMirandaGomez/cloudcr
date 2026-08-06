@@ -11,6 +11,7 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import { useAuth } from '../../../common/context/AuthContext.jsx';
 import { heroSx } from '../../../common/styles/hero.js';
+import { TOP_BAR_HEIGHT } from '../../../common/components/sidebar/Sidebar.jsx';
 
 const SERVICIOS = [
   {
@@ -63,8 +64,16 @@ export default function HomePage() {
 
   return (
     <Box>
-      {/* Barra superior — separada del hero para no chocar con el titulo CloudCR */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 2, pt: 0.5, pb: 1.5 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          px: 2,
+          height: TOP_BAR_HEIGHT,
+          mt: `-${TOP_BAR_HEIGHT}px`,
+        }}
+      >
         <Button
           variant={session ? 'outlined' : 'contained'}
           size="small"

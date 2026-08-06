@@ -18,6 +18,9 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { useColorMode } from '../../context/ColorModeContext.jsx';
 
 const DRAWER_WIDTH = 280;
+const MENU_BUTTON_OFFSET = 12;
+const MENU_BUTTON_SIZE = 40;
+const TOP_BAR_HEIGHT = MENU_BUTTON_OFFSET * 2 + MENU_BUTTON_SIZE;
 
 const NAV_ITEMS = [
   { label: 'Inicio', icon: <HomeIcon />, path: '/', show: () => true },
@@ -30,25 +33,6 @@ const NAV_ITEMS = [
     show: (session) => session?.rol === 'evaluador',
   },
   { label: 'Lista de Controles', icon: <ListAltIcon />, path: '/control-list', show: () => true },
-];
-
-const SERVICES = [
-  {
-    title: 'Evaluación de Riesgo',
-    description: 'Identificación y análisis de riesgos en la administración de bases de datos según ISO/IEC 27002.',
-  },
-  {
-    title: 'Cuestionario de Control Interno',
-    description: 'Evaluación del cumplimiento de controles de seguridad mediante preguntas estructuradas por control.',
-  },
-  {
-    title: 'Lista de Controles ISO 27002',
-    description: 'Catálogo completo de controles con propiedades de confidencialidad, integridad y disponibilidad.',
-  },
-  {
-    title: 'Generación de Reportes',
-    description: 'Reporte ejecutivo con madurez, exposición al riesgo, mapa de calor y hallazgos por auditoría.',
-  },
 ];
 
 const ROL_LABEL = { evaluador: 'Evaluador', organizacion: 'Organización' };
@@ -91,8 +75,7 @@ function DrawerContent({ onClose }) {
 
       <Divider />
 
-      {/* Navegación */}
-      <List dense sx={{ px: 1, pt: 1 }}>
+      <List dense sx={{ px: 1, pt: 1, flex: 1, overflowY: 'auto' }}>
         {NAV_ITEMS.filter((item) => item.show(session)).map(({ label, icon, path }) => (
           <ListItemButton
             key={path}
@@ -110,27 +93,6 @@ function DrawerContent({ onClose }) {
         ))}
       </List>
 
-      {/* Servicios */}
-      <Divider sx={{ mx: 2, my: 1 }} />
-      <Box sx={{ px: 2, pb: 2, overflowY: 'auto', flex: 1 }}>
-        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Servicios
-        </Typography>
-        <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {SERVICES.map(({ title, description }) => (
-            <Box key={title}>
-              <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                {title}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-                {description}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-      </Box>
-
-      {/* Footer — usuario y logout */}
       {session && (
         <Box sx={{ mt: 'auto' }}>
           <Divider />
@@ -171,12 +133,21 @@ export default function Sidebar() {
   return (
     <>
       {!open && (
-        <Box className="no-print" sx={{ position: 'fixed', top: 12, left: 12, zIndex: 1300 }}>
+        <Box
+          className="no-print"
+          sx={{ position: 'fixed', top: MENU_BUTTON_OFFSET, left: MENU_BUTTON_OFFSET, zIndex: 1300 }}
+        >
           <Tooltip title="Menú">
             <IconButton
               onClick={() => setOpen(true)}
               aria-label="Abrir menú"
-              sx={{ bgcolor: 'background.paper', boxShadow: 2, '&:hover': { bgcolor: 'background.paper' } }}
+              sx={{
+                width: MENU_BUTTON_SIZE,
+                height: MENU_BUTTON_SIZE,
+                bgcolor: 'background.paper',
+                boxShadow: 2,
+                '&:hover': { bgcolor: 'background.paper' },
+              }}
             >
               <MenuIcon />
             </IconButton>
@@ -197,4 +168,4 @@ export default function Sidebar() {
   );
 }
 
-export { DRAWER_WIDTH };
+export { DRAWER_WIDTH, TOP_BAR_HEIGHT };
