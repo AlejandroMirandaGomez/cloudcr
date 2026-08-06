@@ -11,6 +11,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { getCatalogos, getControl, updateControl } from '../services/controles.js';
+import { DetalleSkeleton } from '../../../common/components/loading/Skeletons.jsx';
 
 const NIVELES = ['Primario', 'Secundario'];
 
@@ -111,11 +112,7 @@ export default function ControlEditPage() {
   };
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <DetalleSkeleton />;
   }
 
   if (!form) {

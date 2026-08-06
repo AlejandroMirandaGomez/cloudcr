@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import {
-  Box, CircularProgress, Divider, List, ListItem, ListItemText,
-  Paper, Typography,
+  Box, Divider, IconButton, List, ListItem, ListItemText,
+  Paper, Skeleton, Tooltip, Typography,
 } from '@mui/material';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import EventIcon from '@mui/icons-material/Event';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import Table from '../../../common/components/basic-table/Table.jsx';
+import { CardsSkeleton, TableSkeleton } from '../../../common/components/loading/Skeletons.jsx';
 import StatCard from '../components/StatCard.jsx';
 import CumplimientoChip from '../components/CumplimientoChip.jsx';
 import { colorDeCumplimiento } from '../lib/cumplimiento.js';
 import { useAuth } from '../../../common/context/AuthContext.jsx';
 import { getHistorialOrganizacion } from '../services/dashboard.js';
+import { useTheme } from '@mui/material/styles';
 import { getResumen, getMapaCalor, getHallazgos } from '../../internal-control-questionnaire/services/cuestionarios.js';
-import { heroBackgroundSx } from '../../../common/styles/hero.js';
+import { heroSx } from '../../../common/styles/hero.js';
 
 const DIMENSION_LABEL = {
   confidencialidad: 'Confidencialidad',
@@ -34,6 +38,7 @@ const columns = [
 ];
 
 export default function OrganizacionDashboard() {
+  const theme = useTheme();
   const { session } = useAuth();
   const [historial, setHistorial] = useState([]);
   const [resumen, setResumen] = useState(null);
@@ -75,8 +80,16 @@ export default function OrganizacionDashboard() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
+      <Box sx={{ p: 3 }}>
+        <Skeleton variant="text" width="35%" height={44} />
+        <Skeleton variant="text" width="25%" sx={{ mb: 3 }} />
+        <Box sx={{ mb: 3 }}>
+          <CardsSkeleton cantidad={3} />
+        </Box>
+        <Box sx={{ mb: 3 }}>
+          <CardsSkeleton cantidad={3} alto={120} />
+        </Box>
+        <TableSkeleton filas={4} />
       </Box>
     );
   }
@@ -85,8 +98,7 @@ export default function OrganizacionDashboard() {
     <Box>
       <Box
         sx={{
-          ...heroBackgroundSx,
-          color: '#1a1a2e',
+          ...heroSx(theme.palette.mode),
           py: { xs: 4, md: 6 },
           px: 3,
         }}
@@ -132,7 +144,7 @@ export default function OrganizacionDashboard() {
                     </Typography>
                     <CumplimientoChip valor={d.cumplimiento} color={d.color} />
                     <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1 }}>
-                      {d.cumplidos}/{d.aplicables} controles cumplidos
+                      {d.cumplidos}/{d.aplicables} preguntas aplicables cumplidas
                     </Typography>
                   </Paper>
                 ))}
@@ -190,6 +202,23 @@ export default function OrganizacionDashboard() {
             storageKey="dashboard-organizacion"
             enablePagination={false}
             fillToBottom={false}
+            enableRowActions
+            renderRowActions={({ row }) => (
+              <Tooltip title="Ver reporte ejecutivo">
+                <IconButton
+                  component={RouterLink}
+                  to={`/reportes/${row.original.cuestionario_id}`}
+                  size="small"
+                  color="primary"
+                  aria-label="Ver reporte ejecutivo"
+                >
+                  <AssessmentIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            tableOptions={{
+              displayColumnDefOptions: { 'mrt-row-actions': { header: 'Reporte', size: 90 } },
+            }}
           />
         </>
       )}

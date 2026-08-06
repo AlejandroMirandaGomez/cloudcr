@@ -1,5 +1,22 @@
 # Estado del proyecto CloudCR — resumen para continuar el trabajo
 
+> **⚠️ ACTUALIZACIÓN (2026-08-05):** este documento quedó desactualizado. Desde que se escribió:
+>
+> - El modelo de datos nuevo (`database/Modelo_Relacional.sql`) ya incluye `Preguntas` (43),
+>   `peso`, dominios de la norma, `proposito` y respuestas por pregunta con 4 atributos.
+> - El flujo de responder cuestionario está **conectado al backend real** (auditorías →
+>   controles → preguntas, guardado parcial por lotes). Los mocks se eliminaron.
+> - Nivel de madurez 0–5 y exposición al riesgo C/I/D están **implementados**
+>   (`GET /cuestionarios/{id}/madurez` y `/riesgo`) según `docs/Metodologia_Madurez.md` y
+>   `docs/Metodologia_Riesgo.md`.
+> - Existe el **reporte ejecutivo imprimible** (`/reportes/{id}` en el frontend) con gráficos de
+>   barras, semáforo de riesgo, mapa de calor, ranking y hallazgos.
+> - Entregables escritos: `docs/Instrumento_Evaluacion.md`, `docs/Metodologia_Madurez.md`,
+>   `docs/Metodologia_Riesgo.md`, `docs/Manual_Usuario.md`, `docs/Manual_Tecnico.md`.
+>
+> Fuentes de verdad vigentes: `backend/docs/Api.md`, `backend/docs/Gaps.md` y `docs/Manual_Tecnico.md`.
+> Lo que sigue abajo se conserva como referencia histórica.
+
 > **Qué es este documento:** un corte de estado del proyecto (EIF402 — Administración de Bases de
 > Datos, "Evaluación del Riesgo en Administración de Bases de Datos basada en ISO/IEC 27002")
 > pensado para que lo peguen en una conversación con una IA (Claude, ChatGPT, etc.) y puedan seguir

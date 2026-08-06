@@ -248,3 +248,45 @@ debe mostrar "sin evaluar", no 0%.
 
 **GET `/cuestionarios/{id}/hallazgos`** — controles con respuesta `No`, con sus normas. Es la
 entrada para las recomendaciones automaticas de Persona 4.
+
+**GET `/cuestionarios/{id}/madurez`** — nivel de madurez 0-5 por control, por dominio y global,
+segun `docs/Metodologia_Madurez.md` (tasas de atributos → indice continuo → nivel con topes).
+
+```json
+{ "data": {
+    "cuestionario_id": 1,
+    "escala": [ { "nivel": 0, "descripcion": "El control no existe" } ],
+    "controles": [
+      { "control_id": 1, "codigo": "8.2", "nombre": "...", "dominio_norma": "Tecnologicos",
+        "peso": 9, "preguntas": 4, "respondidas": 3, "aplicables": 2,
+        "tasas": { "cumple": 0.5, "documentado": 0.5, "repetible": 0, "evidencia": 0 },
+        "indice_madurez": 1.25, "nivel_madurez": 1 } ],
+    "dominios": [ { "dominio_norma": "Tecnologicos", "clausula": 8,
+                    "controles_evaluados": 3, "indice_madurez": 3.33 } ],
+    "global": { "controles_evaluados": 3, "indice_madurez": 3.33 } } }
+```
+
+Un control sin preguntas aplicables (sin respuestas, o todo `N/A`) trae `tasas`,
+`indice_madurez` y `nivel_madurez` en `null` y queda fuera de dominios y del global.
+Los agregados ponderan por `peso`.
+
+**GET `/cuestionarios/{id}/riesgo`** — exposicion al riesgo C/I/D e indice general, segun
+`docs/Metodologia_Riesgo.md` (`E = Σ peso·r·(1−IM/5) / Σ peso·r`; `r`: Primario 1.0,
+Secundario 0.5, sin relacion 0).
+
+```json
+{ "data": {
+    "cuestionario_id": 1,
+    "escala": [ { "nivel": "bajo", "color": "verde", "desde": 0, "hasta": 0.15 },
+                { "nivel": "medio", "color": "amarillo", "desde": 0.15, "hasta": 0.4 },
+                { "nivel": "alto", "color": "rojo", "desde": 0.4, "hasta": 1 } ],
+    "dimensiones": [ { "dimension": "confidencialidad", "controles_considerados": 2,
+                       "exposicion": 0.375, "nivel_riesgo": "medio", "color": "amarillo" } ],
+    "indice_general": { "exposicion": 0.3393, "nivel_riesgo": "medio", "color": "amarillo" },
+    "controles": [
+      { "control_id": 1, "codigo": "8.2", "peso": 9, "indice_madurez": 1.25,
+        "deficiencia": 0.75, "exposicion": 0.675 } ] } }
+```
+
+`controles` viene ordenado por `exposicion` descendente (ranking de remediacion). Una
+dimension sin controles considerados trae `exposicion` en `null` y nivel `sin_datos`.

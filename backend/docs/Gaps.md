@@ -87,26 +87,29 @@ ALTER TABLE Respuestas
 
 ---
 
-## Nivel de madurez y exposicion al riesgo  🟡 pendiente de diseno
+## Nivel de madurez y exposicion al riesgo  ✅ resuelto
 
-El esquema ya tiene el `peso` del control, que era el insumo que faltaba. Lo que no existe
-todavia es la metodologia: no esta decidido si el nivel de madurez 0–5 se registra por control
-en cada auditoria o se deriva de las respuestas, ni cual es la formula de exposicion al riesgo.
-
-Lo que el backend si entrega hoy como insumo:
+La madurez se **deriva** de las respuestas (no se registra a mano), asi que no hizo falta DDL.
+Metodologias en `docs/Metodologia_Madurez.md` y `docs/Metodologia_Riesgo.md`; implementacion en
+`ReporteRepository::madurez()` y `::riesgo()`.
 
 | Endpoint | Aporta |
 |---|---|
+| `GET /cuestionarios/{id}/madurez` | IM continuo y nivel 0-5 por control, por dominio y global |
+| `GET /cuestionarios/{id}/riesgo` | exposicion C/I/D, indice general y ranking por control |
 | `GET /cuestionarios/{id}/resumen` | cumplimiento global y tasas de documentado / repetible / evidencia |
 | `GET /cuestionarios/{id}/mapa-calor` | cumplimiento por dimension con desglose Primario / Secundario |
 | `GET /cuestionarios/{id}/hallazgos` | preguntas respondidas 'No', ordenadas por peso del control |
 
-Si se opta por registrar la madurez, hace falta al menos:
+---
 
-```sql
-ALTER TABLE Respuestas
-    ADD COLUMN nivel_madurez SMALLINT CHECK (nivel_madurez BETWEEN 0 AND 5);
-```
+## Autorizacion por datos en el API  🟡 pendiente
+
+El login funciona, pero el API no exige token ni sesion: cualquier cliente puede llamar
+cualquier endpoint. El control de acceso por rol vive solo en el frontend
+(`ProtectedRoute`), que es una barrera de UX, no de seguridad. Para la parte 2 conviene un
+token (p. ej. firmado con HMAC) validado en `Bootstrap`/middleware, y filtrar por
+`organizacion_id`/`evaluador_id` de la sesion en los endpoints de lectura.
 
 ---
 

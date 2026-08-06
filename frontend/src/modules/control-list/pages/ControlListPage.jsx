@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, Chip, CircularProgress, Stack } from '@mui/material';
+import { Box, Button, Chip, Stack } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Table from '../../../common/components/basic-table/Table.jsx';
+import { TableSkeleton } from '../../../common/components/loading/Skeletons.jsx';
 import RowActionsMenu from '../components/RowActionsMenu.jsx';
 import { getControles } from '../services/controles.js';
 
 const CHIP_SX = { width: 104, justifyContent: 'center' };
-
-const PRIMARIO_COLOR = '#0d47a1';
 
 function CIDChip({ value }) {
   if (!value) return <Box component="span" sx={{ color: 'text.disabled' }}>—</Box>;
@@ -18,10 +17,13 @@ function CIDChip({ value }) {
       label={value}
       size="small"
       variant="outlined"
-      sx={{
+      sx={(t) => ({
         ...CHIP_SX,
-        ...(isPrimario && { color: PRIMARIO_COLOR, borderColor: PRIMARIO_COLOR }),
-      }}
+        ...(isPrimario && {
+          color: t.palette.mode === 'dark' ? '#8ec9ff' : '#0d47a1',
+          borderColor: t.palette.mode === 'dark' ? 'rgba(142,201,255,0.6)' : '#0d47a1',
+        }),
+      })}
     />
   );
 }
@@ -104,9 +106,7 @@ export default function ControlListPage() {
       </Box>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
-          <CircularProgress />
-        </Box>
+        <TableSkeleton filas={8} />
       ) : (
         <Table
           columns={cols}

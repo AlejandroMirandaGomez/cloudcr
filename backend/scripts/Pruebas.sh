@@ -76,6 +76,10 @@ llamar "$BASE/cuestionarios/1/resumen"
 llamar "$BASE/cuestionarios/1/mapa-calor"
 llamar "$BASE/cuestionarios/1/hallazgos"
 
+paso "Nivel de madurez y exposicion al riesgo"
+llamar "$BASE/cuestionarios/1/madurez"
+llamar "$BASE/cuestionarios/1/riesgo"
+
 paso "Ruta inexistente (404) y metodo no permitido (405)"
 llamar "$BASE/no-existe"
 llamar -X DELETE "$BASE/evaluadores/1"

@@ -19,11 +19,14 @@ const ControlEditPage = lazy(() =>
 const InternalControlQuestionnairePage = lazy(() =>
   import('../modules/internal-control-questionnaire/pages/InternalControlQuestionnairePage.jsx'),
 );
-const ControlDetailPage = lazy(() =>
-  import('../modules/internal-control-questionnaire/pages/ControlDetailPage.jsx'),
+const CuestionarioControlesPage = lazy(() =>
+  import('../modules/internal-control-questionnaire/pages/CuestionarioControlesPage.jsx'),
 );
 const ControlQuestionnairePage = lazy(() =>
   import('../modules/internal-control-questionnaire/pages/ControlQuestionnairePage.jsx'),
+);
+const ReporteEjecutivoPage = lazy(() =>
+  import('../modules/reporte/pages/ReporteEjecutivoPage.jsx'),
 );
 
 const Protected = ({ children, allowedRoles }) => (
@@ -77,12 +80,16 @@ export const router = createBrowserRouter([
         element: <Protected allowedRoles={['evaluador']}><InternalControlQuestionnairePage /></Protected>,
       },
       {
-        path: 'internal-control-questionnaire/:id',
-        element: <Protected allowedRoles={['evaluador']}><ControlDetailPage /></Protected>,
+        path: 'internal-control-questionnaire/:cuestionarioId',
+        element: <Protected allowedRoles={['evaluador']}><CuestionarioControlesPage /></Protected>,
       },
       {
-        path: 'internal-control-questionnaire/:id/cuestionario',
+        path: 'internal-control-questionnaire/:cuestionarioId/control/:controlId',
         element: <Protected allowedRoles={['evaluador']}><ControlQuestionnairePage /></Protected>,
+      },
+      {
+        path: 'reportes/:cuestionarioId',
+        element: <Protected><ReporteEjecutivoPage /></Protected>,
       },
     ],
   },

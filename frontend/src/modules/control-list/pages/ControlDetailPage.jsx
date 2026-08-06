@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Box, CircularProgress } from '@mui/material';
 import ControlDetail from '../../../common/components/control-detail/ControlDetail.jsx';
+import { DetalleSkeleton } from '../../../common/components/loading/Skeletons.jsx';
 import { getControl } from '../services/controles.js';
 
 const BACK_TO = '/control-list';
@@ -19,11 +19,7 @@ export default function ControlDetailPage() {
   }, [id]);
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <DetalleSkeleton />;
   }
 
   return (

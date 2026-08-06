@@ -19,16 +19,23 @@ import TableHorizontalScrollbar from './TableHorizontalScrollbar.jsx';
 import useFillToBottom, { TOP_GAP, BOTTOM_GAP } from './useFillToBottom.js';
 import { readColumnVisibility, writeColumnVisibility } from '../../lib/storage.js';
 
-const SURFACE = '#faf8ff';
-const SURFACE_SHADOW = '0 2px 8px rgba(100, 108, 130, 0.10)';
-const PAPER = '#ffffff';
-const DIVIDER = 'rgba(0, 0, 0, 0.12)';
-const ROW_HOVER = 'rgba(0, 0, 0, 0.04)';
-const ROW_STRIPE = 'rgba(0, 0, 0, 0.015)';
-
-const headerSurfaceSx = {
-    background: SURFACE,
-    boxShadow: SURFACE_SHADOW,
+const SUPERFICIES = {
+    light: {
+        SURFACE: '#faf8ff',
+        SURFACE_SHADOW: '0 2px 8px rgba(100, 108, 130, 0.10)',
+        PAPER: '#ffffff',
+        DIVIDER: 'rgba(0, 0, 0, 0.12)',
+        ROW_HOVER: 'rgba(0, 0, 0, 0.04)',
+        ROW_STRIPE: 'rgba(0, 0, 0, 0.015)',
+    },
+    dark: {
+        SURFACE: '#1e1b2e',
+        SURFACE_SHADOW: '0 2px 8px rgba(0, 0, 0, 0.35)',
+        PAPER: '#242038',
+        DIVIDER: 'rgba(255, 255, 255, 0.12)',
+        ROW_HOVER: 'rgba(255, 255, 255, 0.06)',
+        ROW_STRIPE: 'rgba(255, 255, 255, 0.02)',
+    },
 };
 
 const DISPLAY_COLUMN_DEFAULTS = {
@@ -84,6 +91,9 @@ export default function Table({
                               }) {
     'use no memo';
     const theme = useTheme();
+    const { SURFACE, SURFACE_SHADOW, PAPER, DIVIDER, ROW_HOVER, ROW_STRIPE } =
+        SUPERFICIES[theme.palette.mode] ?? SUPERFICIES.light;
+    const headerSurfaceSx = { background: SURFACE, boxShadow: SURFACE_SHADOW };
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isTouch = useMediaQuery('(pointer: coarse)');
     const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);

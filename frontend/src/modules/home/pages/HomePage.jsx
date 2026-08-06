@@ -3,13 +3,14 @@ import {
   Avatar, Box, Button, Container, Divider,
   Paper, Stack, Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import LoginIcon from '@mui/icons-material/Login';
 import SecurityIcon from '@mui/icons-material/Security';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import { useAuth } from '../../../common/context/AuthContext.jsx';
-import { heroBackgroundSx } from '../../../common/styles/hero.js';
+import { heroSx } from '../../../common/styles/hero.js';
 
 const SERVICIOS = [
   {
@@ -52,6 +53,7 @@ function iniciales(nombre) {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { session, logout } = useAuth();
 
   const handleAuthAction = () => {
@@ -61,10 +63,11 @@ export default function HomePage() {
 
   return (
     <Box>
-      {/* Barra superior */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 3, pt: 2 }}>
+      {/* Barra superior — separada del hero para no chocar con el titulo CloudCR */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 2, pt: 0.5, pb: 1.5 }}>
         <Button
           variant={session ? 'outlined' : 'contained'}
+          size="small"
           startIcon={<LoginIcon />}
           onClick={handleAuthAction}
         >
@@ -75,8 +78,7 @@ export default function HomePage() {
       {/* Hero */}
       <Box
         sx={{
-          ...heroBackgroundSx,
-          color: '#1a1a2e',
+          ...heroSx(theme.palette.mode),
           py: { xs: 6, md: 10 },
           px: 3,
           textAlign: 'center',
@@ -98,8 +100,8 @@ export default function HomePage() {
             onClick={() => navigate('/login')}
             sx={{
               position: 'relative',
-              bgcolor: '#14142b',
-              '&:hover': { bgcolor: '#000' },
+              bgcolor: '#26243a',
+              '&:hover': { bgcolor: '#14142b' },
             }}
           >
             Iniciar sesión
@@ -158,7 +160,7 @@ export default function HomePage() {
           ))}
         </Box>
 
-        <Stack alignItems="center" sx={{ mt: 6 }}>
+        <Stack sx={{ mt: 6, alignItems: 'center' }}>
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 600 }}>
             CloudCR es un proyecto integrador desarrollado para el curso EIF402 — Administración de Bases de Datos,
             basado en los controles de seguridad de la norma ISO/IEC 27002.

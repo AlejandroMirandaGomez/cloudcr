@@ -1,8 +1,26 @@
-html {
-  color-scheme: light;
-}
-
 body {
   margin: 0;
-  background: #4b0ddc;
+}
+
+/* Reporte ejecutivo imprimible: ocultar navegacion y dejar solo el contenido. */
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .MuiDrawer-root,
+  footer,
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .reporte-ejecutivo {
+    max-width: none !important;
+    padding: 0 !important;
+  }
 }

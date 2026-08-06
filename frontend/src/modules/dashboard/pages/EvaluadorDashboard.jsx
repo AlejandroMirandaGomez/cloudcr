@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, CircularProgress, Paper, Typography } from '@mui/material';
+import { Box, Button, IconButton, Paper, Tooltip, Typography } from '@mui/material';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import LaunchIcon from '@mui/icons-material/Launch';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import Table from '../../../common/components/basic-table/Table.jsx';
+import { TableSkeleton } from '../../../common/components/loading/Skeletons.jsx';
 import StatCard from '../components/StatCard.jsx';
 import { useAuth } from '../../../common/context/AuthContext.jsx';
+import { useTheme } from '@mui/material/styles';
 import { getCuestionarios } from '../../internal-control-questionnaire/services/cuestionarios.js';
-import { heroBackgroundSx } from '../../../common/styles/hero.js';
+import { heroSx } from '../../../common/styles/hero.js';
 
 function esDelMesActual(fechaISO) {
   const fecha = new Date(fechaISO);
@@ -30,6 +34,7 @@ const columns = [
 ];
 
 export default function EvaluadorDashboard() {
+  const theme = useTheme();
   const { session } = useAuth();
   const [cuestionarios, setCuestionarios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,8 +54,7 @@ export default function EvaluadorDashboard() {
     <Box>
       <Box
         sx={{
-          ...heroBackgroundSx,
-          color: '#1a1a2e',
+          ...heroSx(theme.palette.mode),
           py: { xs: 4, md: 6 },
           px: 3,
         }}
@@ -89,9 +93,7 @@ export default function EvaluadorDashboard() {
       </Typography>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <CircularProgress />
-        </Box>
+        <TableSkeleton filas={4} />
       ) : cuestionarios.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 4, borderRadius: 2, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
@@ -105,6 +107,35 @@ export default function EvaluadorDashboard() {
           storageKey="dashboard-evaluador"
           enablePagination={false}
           fillToBottom={false}
+          enableRowActions
+          renderRowActions={({ row }) => (
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Tooltip title="Continuar la auditoría">
+                <IconButton
+                  component={RouterLink}
+                  to={`/internal-control-questionnaire/${row.original.id}`}
+                  size="small"
+                  color="primary"
+                  aria-label="Continuar la auditoría"
+                >
+                  <PlayArrowIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Ver reporte ejecutivo">
+                <IconButton
+                  component={RouterLink}
+                  to={`/reportes/${row.original.id}`}
+                  size="small"
+                  aria-label="Ver reporte ejecutivo"
+                >
+                  <AssessmentIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
+          tableOptions={{
+            displayColumnDefOptions: { 'mrt-row-actions': { header: 'Acciones', size: 110 } },
+          }}
         />
       )}
       </Box>

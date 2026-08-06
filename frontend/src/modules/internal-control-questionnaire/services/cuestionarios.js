@@ -36,3 +36,6 @@ export const getRespuestasPendientes = (cuestionarioId) =>
 export const getResumen   = (id) => api.get(`/cuestionarios/${id}/resumen`);
 export const getMapaCalor = (id) => api.get(`/cuestionarios/${id}/mapa-calor`);
 export const getHallazgos = (id) => api.get(`/cuestionarios/${id}/hallazgos`);
+
+export const getOrganizaciones = () =>
+  api.get('/organizaciones?limit=200').then((d) => (Array.isArray(d) ? d : d.items ?? []));

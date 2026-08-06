@@ -1,6 +1,14 @@
 /backend/vendor/
 /backend/config/.env
+/config/.env
 composer.lock
 
 /frontend/node_modules/
 /frontend/dist/
+
+# Artefactos locales: instalador de skills, dependencias sueltas de composer en la raiz, logs
+/vendor/
+/.agents/
+/.claude/
+skills-lock.json
+error.log

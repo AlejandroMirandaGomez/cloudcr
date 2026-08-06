@@ -4,7 +4,13 @@ export default function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <Box component="footer" sx={{ mt: 'auto', bgcolor: 'grey.100' }}>
+    <Box
+      component="footer"
+      sx={{
+        mt: 'auto',
+        bgcolor: (t) => (t.palette.mode === 'dark' ? t.palette.background.paper : t.palette.grey[100]),
+      }}
+    >
       <Divider />
       <Container maxWidth="lg" sx={{ py: 3 }}>
         <Stack

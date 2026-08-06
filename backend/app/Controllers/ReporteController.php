@@ -32,6 +32,18 @@ final class ReporteController extends BaseController
         Response::ok($this->repo->hallazgos($cuestionarioId));
     }
 
+    /** Nivel de madurez 0-5 por control, dominio y global (docs/Metodologia_Madurez.md). */
+    public function madurez(Request $r, int $cuestionarioId): void
+    {
+        Response::ok($this->repo->madurez($cuestionarioId));
+    }
+
+    /** Exposicion al riesgo C/I/D e indice general (docs/Metodologia_Riesgo.md). */
+    public function riesgo(Request $r, int $cuestionarioId): void
+    {
+        Response::ok($this->repo->riesgo($cuestionarioId));
+    }
+
     public function historialOrganizacion(Request $r, int $organizacionId): void
     {
         Response::ok($this->repo->historialOrganizacion($organizacionId));

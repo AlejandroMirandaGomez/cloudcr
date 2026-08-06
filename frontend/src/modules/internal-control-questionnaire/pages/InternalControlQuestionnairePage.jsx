@@ -1,137 +1,244 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, Chip, CircularProgress, IconButton, Stack, Tooltip } from '@mui/material';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import {
+  Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent,
+  DialogTitle, IconButton, LinearProgress, MenuItem, Stack, TextField, Tooltip, Typography,
+} from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import LaunchIcon from '@mui/icons-material/Launch';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import Table from '../../../common/components/basic-table/Table.jsx';
-import AuditInfoHeader from '../components/audit-info-header/AuditInfoHeader.jsx';
-import { getControles } from '../../control-list/services/controles.js';
+import { TableSkeleton } from '../../../common/components/loading/Skeletons.jsx';
+import { useAuth } from '../../../common/context/AuthContext.jsx';
+import {
+  crearCuestionario, eliminarCuestionario, getCuestionarios, getOrganizaciones,
+} from '../services/cuestionarios.js';
 
-const CHIP_SX = { width: 104, justifyContent: 'center' };
+const hoyISO = () => new Date().toISOString().slice(0, 10);
 
-const PRIMARIO_COLOR = '#0d47a1';
-
-function CIDChip({ value }) {
-  if (!value) return <Box component="span" sx={{ color: 'text.disabled' }}>—</Box>;
-  const isPrimario = value === 'Primario';
+function AvanceCell({ row }) {
+  const { respuestas_registradas: hechas, preguntas_en_catalogo: total, avance } = row.original;
   return (
-    <Chip
-      label={value}
-      size="small"
-      variant="outlined"
-      sx={{
-        ...CHIP_SX,
-        ...(isPrimario && { color: PRIMARIO_COLOR, borderColor: PRIMARIO_COLOR }),
-      }}
-    />
+    <Stack spacing={0.5} sx={{ minWidth: 140 }}>
+      <Typography variant="caption">{hechas}/{total} preguntas</Typography>
+      <LinearProgress
+        variant="determinate"
+        value={Math.round((avance ?? 0) * 100)}
+        sx={{ height: 6, borderRadius: 3 }}
+      />
+    </Stack>
   );
 }
 
-const COLUMNAS_OCULTAS = { codigo: false, tipo: false };
+function EstadoChip({ avance }) {
+  if (avance >= 1) return <Chip label="Completa" color="success" size="small" variant="outlined" />;
+  if (avance > 0) return <Chip label="En progreso" color="warning" size="small" variant="outlined" />;
+  return <Chip label="Sin iniciar" size="small" variant="outlined" />;
+}
 
 const columns = [
-  { accessorKey: 'norma', header: 'Norma', size: 90 },
-  { accessorKey: 'codigo', header: 'Código', size: 90 },
-  { accessorKey: 'nombre', header: 'Nombre', size: 240 },
-  { accessorKey: 'descripcion', header: 'Descripción', size: 420 },
+  { accessorKey: 'id', header: 'N°', size: 70 },
+  { accessorKey: 'organizacion', header: 'Organización', size: 220 },
+  { accessorKey: 'fecha', header: 'Fecha', size: 120 },
+  { id: 'avance', header: 'Avance', Cell: AvanceCell, size: 170 },
   {
-    id: 'tipo',
-    header: 'Tipo',
-    accessorFn: (row) => row.tipo.join(', '),
-    Cell: ({ row, table }) => {
-      const isCompact = table.getState().density === 'compact';
-      return (
-        <Stack
-          direction={isCompact ? 'row' : 'column'}
-          useFlexGap
-          sx={{ flexWrap: isCompact ? 'wrap' : 'nowrap', gap: '5px' }}
-        >
-          {row.original.tipo.map((t) => (
-            <Chip key={t} label={t} size="small" variant="outlined" sx={CHIP_SX} />
-          ))}
-        </Stack>
-      );
-    },
-    size: 160,
-  },
-  {
-    accessorKey: 'integridad',
-    header: 'Integridad',
-    Cell: ({ cell }) => <CIDChip value={cell.getValue()} />,
-    size: 130,
-  },
-  {
-    accessorKey: 'disponibilidad',
-    header: 'Disponibilidad',
-    Cell: ({ cell }) => <CIDChip value={cell.getValue()} />,
-    size: 140,
-  },
-  {
-    accessorKey: 'confidencialidad',
-    header: 'Confidencialidad',
-    Cell: ({ cell }) => <CIDChip value={cell.getValue()} />,
-    size: 150,
+    id: 'estado',
+    header: 'Estado',
+    Cell: ({ row }) => <EstadoChip avance={row.original.avance ?? 0} />,
+    size: 120,
   },
 ];
 
-const tableOptions = {
-  displayColumnDefOptions: {
-    'mrt-row-actions': { header: 'Cuestionario', size: 150 },
-  },
-};
-
 export default function InternalControlQuestionnairePage() {
+  const { session } = useAuth();
+  const navigate = useNavigate();
   const cols = useMemo(() => columns, []);
-  const [controles, setControles] = useState([]);
+
+  const [cuestionarios, setCuestionarios] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [dialogAbierto, setDialogAbierto] = useState(false);
+  const [organizaciones, setOrganizaciones] = useState([]);
+  const [organizacionId, setOrganizacionId] = useState('');
+  const [fecha, setFecha] = useState(hoyISO());
+  const [creando, setCreando] = useState(false);
+  const [errorDialogo, setErrorDialogo] = useState('');
+
+  const [porEliminar, setPorEliminar] = useState(null);
+  const [eliminando, setEliminando] = useState(false);
+
+  const cargar = useCallback(
+    () =>
+      getCuestionarios({ evaluador_id: session.id })
+        .then(setCuestionarios)
+        .catch((e) => setError(e.message))
+        .finally(() => setLoading(false)),
+    [session.id],
+  );
 
   useEffect(() => {
-    getControles().then(setControles).finally(() => setLoading(false));
-  }, []);
+    cargar();
+  }, [cargar]);
+
+  const abrirDialogo = () => {
+    setErrorDialogo('');
+    setOrganizacionId('');
+    setFecha(hoyISO());
+    setDialogAbierto(true);
+    if (organizaciones.length === 0) {
+      getOrganizaciones()
+        .then(setOrganizaciones)
+        .catch((e) => setErrorDialogo(e.message));
+    }
+  };
+
+  const crear = async () => {
+    setCreando(true);
+    setErrorDialogo('');
+    try {
+      const nuevo = await crearCuestionario({
+        organizacion_id: Number(organizacionId),
+        evaluador_id: session.id,
+        fecha,
+      });
+      navigate(`/internal-control-questionnaire/${nuevo.id}`);
+    } catch (e) {
+      setErrorDialogo(e.message);
+      setCreando(false);
+    }
+  };
+
+  const eliminar = async () => {
+    setEliminando(true);
+    try {
+      await eliminarCuestionario(porEliminar.id);
+      setPorEliminar(null);
+      cargar();
+    } catch (e) {
+      setError(e.message);
+      setPorEliminar(null);
+    } finally {
+      setEliminando(false);
+    }
+  };
 
   return (
     <Box sx={{ p: 3, pb: 0 }}>
-      <Box sx={{ mb: 2 }}>
-        <Button
-          component={RouterLink}
-          to="/"
-          startIcon={<ArrowBackIcon />}
-          variant="outlined"
-        >
+      <Stack
+        direction="row"
+        spacing={2}
+        useFlexGap
+        sx={{ mb: 2, flexWrap: 'wrap', justifyContent: 'space-between' }}
+      >
+        <Button component={RouterLink} to="/" startIcon={<ArrowBackIcon />} variant="outlined">
           Volver al inicio
         </Button>
-      </Box>
+        <Button onClick={abrirDialogo} startIcon={<AddIcon />} variant="contained">
+          Nueva auditoría
+        </Button>
+      </Stack>
 
-      <Box sx={{ mb: 2 }}>
-        <AuditInfoHeader />
-      </Box>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+        Auditorías de control interno
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Cree una nueva auditoría o continúe una evaluación guardada parcialmente.
+      </Typography>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
-          <CircularProgress />
-        </Box>
+        <TableSkeleton filas={5} />
       ) : (
         <Table
           columns={cols}
-          data={controles}
-          storageKey="internal-control-questionnaire"
-          defaultColumnVisibility={COLUMNAS_OCULTAS}
+          data={cuestionarios}
+          storageKey="auditorias"
           enableRowActions
           renderRowActions={({ row }) => (
-            <Tooltip title="Realizar el cuestionario">
-              <IconButton
-                component={RouterLink}
-                to={`/internal-control-questionnaire/${row.original.id}/cuestionario`}
-                size="small"
-                aria-label="Realizar el cuestionario"
-              >
-                <LaunchIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            <Stack direction="row" spacing={0.5}>
+              <Tooltip title="Continuar la auditoría">
+                <IconButton
+                  component={RouterLink}
+                  to={`/internal-control-questionnaire/${row.original.id}`}
+                  size="small"
+                  color="primary"
+                  aria-label="Continuar la auditoría"
+                >
+                  <PlayArrowIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Eliminar">
+                <IconButton
+                  size="small"
+                  onClick={() => setPorEliminar(row.original)}
+                  aria-label="Eliminar la auditoría"
+                >
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
           )}
-          tableOptions={tableOptions}
+          tableOptions={{
+            displayColumnDefOptions: { 'mrt-row-actions': { header: 'Acciones', size: 110 } },
+          }}
         />
       )}
+
+      {/* Dialogo: nueva auditoria */}
+      <Dialog open={dialogAbierto} onClose={() => !creando && setDialogAbierto(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Nueva auditoría</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {errorDialogo && <Alert severity="error">{errorDialogo}</Alert>}
+            <TextField
+              select
+              label="Organización"
+              value={organizacionId}
+              onChange={(e) => setOrganizacionId(e.target.value)}
+              fullWidth
+            >
+              {organizaciones.map((o) => (
+                <MenuItem key={o.id} value={o.id}>{o.nombre}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Fecha de la auditoría"
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField label="Auditor" value={session.nombre} fullWidth disabled />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogAbierto(false)} disabled={creando}>Cancelar</Button>
+          <Button onClick={crear} variant="contained" disabled={!organizacionId || !fecha || creando}>
+            {creando ? 'Creando…' : 'Crear y evaluar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialogo: confirmar eliminacion */}
+      <Dialog open={porEliminar !== null} onClose={() => !eliminando && setPorEliminar(null)} maxWidth="xs">
+        <DialogTitle>¿Eliminar la auditoría?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Se eliminará la auditoría N° {porEliminar?.id} de «{porEliminar?.organizacion}» y todas
+            sus respuestas registradas. Esta acción no se puede deshacer.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPorEliminar(null)} disabled={eliminando}>Cancelar</Button>
+          <Button onClick={eliminar} color="error" variant="contained" disabled={eliminando}>
+            {eliminando ? 'Eliminando…' : 'Eliminar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
