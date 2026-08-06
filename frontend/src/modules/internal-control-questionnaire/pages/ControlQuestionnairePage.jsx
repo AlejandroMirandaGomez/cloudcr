@@ -133,6 +133,12 @@ export default function ControlQuestionnairePage() {
         <Button
           component={RouterLink}
           to={`/control-list/${control.id}`}
+          state={{
+            volverA: {
+              to: `${backTo}/control/${controlId}`,
+              label: 'Volver al cuestionario',
+            },
+          }}
           startIcon={<VisibilityIcon />}
           variant="outlined"
         >
