@@ -12,7 +12,7 @@ import { getControl } from '../../control-list/services/controles.js';
 import { getCuestionario, guardarLote } from '../services/cuestionarios.js';
 
 const LISTA_AUDITORIAS = '/internal-control-questionnaire';
-const RESPUESTA_NUEVA = { documentado: 'No', repetible: 'No', evidencia: 'No' };
+const respuestaNueva = (valor) => ({ documentado: valor, repetible: valor, evidencia: valor });
 
 export default function ControlQuestionnairePage() {
   const { cuestionarioId, controlId } = useParams();
@@ -62,7 +62,7 @@ export default function ControlQuestionnairePage() {
         if (valor === 'N/A') {
           siguiente = { cumple: 'N/A', documentado: 'N/A', repetible: 'N/A', evidencia: 'N/A' };
         } else if (actual == null || actual.cumple === 'N/A') {
-          siguiente = { cumple: valor, ...RESPUESTA_NUEVA };
+          siguiente = { cumple: valor, ...respuestaNueva(valor) };
         } else {
           siguiente = { ...actual, cumple: valor };
         }
