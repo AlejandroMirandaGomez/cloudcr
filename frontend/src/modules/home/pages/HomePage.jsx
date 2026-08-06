@@ -40,7 +40,7 @@ const EQUIPO = [
   { nombre: 'Juan Pablo Sánchez Bermúdez', rol: 'Desarrollador Backend & Base de Datos' },
   { nombre: 'Luis Hidalgo Calvo',             rol: 'Desarrollador Frontend' },
   { nombre: 'Josue David Sanchez Salazar',             rol: 'Analista de Seguridad' },
-  { nombre: 'Alejandro Miranda',             rol: 'Gestión del Proyecto' },
+  { nombre: 'Alejandro Miranda Gómez',             rol: 'Gestión del Proyecto' },
 ];
 
 function iniciales(nombre) {
