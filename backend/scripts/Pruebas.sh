@@ -68,6 +68,15 @@ paso "Respuesta con valor sin tilde (422)"
 llamar -X PUT "$BASE/cuestionarios/1/respuestas/2" -H "$J" \
   -d '{"cumple":"Si","documentado":"N/A","repetible":"N/A","evidencia":"N/A"}'
 
+paso "N/A sin justificacion (422) y con justificacion valida (200/201)"
+llamar -X PUT "$BASE/cuestionarios/1/respuestas/2" -H "$J" \
+  -d '{"cumple":"N/A","documentado":"N/A","repetible":"N/A","evidencia":"N/A"}'
+llamar -X PUT "$BASE/cuestionarios/1/respuestas/2" -H "$J" \
+  -d '{"cumple":"N/A","documentado":"N/A","repetible":"N/A","evidencia":"N/A","justificacion_no_aplica":"La organizacion no administra este tipo de servicio."}'
+
+paso "Preguntas no aplicables con su justificacion (200)"
+llamar "$BASE/cuestionarios/1/no-aplicables"
+
 paso "Preguntas pendientes del cuestionario 1"
 llamar "$BASE/cuestionarios/1/respuestas/pendientes"
 

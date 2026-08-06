@@ -74,10 +74,11 @@ ALTER TABLE Cuestionarios_Control_Interno
 
 ---
 
-## Observaciones y evidencias en texto  🔴 bloqueada
+## Observaciones y evidencias en texto  🟡 parcial
 
-`Respuestas` guarda `evidencia` como `Sí` / `No` / `N/A`, no un texto ni un archivo adjunto.
-El enunciado pide registrar observaciones, comentarios y evidencias encontradas.
+`Respuestas` ya guarda `justificacion_no_aplica` (texto obligatorio cuando `cumple = 'N/A'`,
+con CHECK en la tabla y validacion en el API). Falta el texto libre para el resto de las
+respuestas y los archivos adjuntos que menciona el enunciado.
 
 ```sql
 ALTER TABLE Respuestas

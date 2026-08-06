@@ -57,7 +57,8 @@ final class RespuestaController extends BaseController
             $datos      = $this->campos($v);
 
             if ($v->fails()) {
-                $errores["respuestas.$i"] = 'Fila invalida: revise pregunta_id, cumple, documentado, repetible y evidencia.';
+                $errores["respuestas.$i"] = 'Fila invalida: revise pregunta_id, cumple, documentado, '
+                    . 'repetible, evidencia y la justificacion cuando la respuesta es N/A.';
                 continue;
             }
 
@@ -103,13 +104,25 @@ final class RespuestaController extends BaseController
         return $datos;
     }
 
+    /**
+     * La justificacion solo tiene sentido cuando la pregunta no aplica: es
+     * obligatoria con 'N/A' y se descarta en cualquier otro caso, igual que el
+     * CHECK de la tabla Respuestas.
+     */
     private function campos(Validator $v): array
     {
+        $cumple = $v->enum('cumple', Validator::RESPUESTAS);
+
+        $justificacion = $cumple === 'N/A'
+            ? $v->requiredString('justificacion_no_aplica', 500, 10)
+            : null;
+
         return [
-            'cumple'      => $v->enum('cumple', Validator::RESPUESTAS),
-            'documentado' => $v->enum('documentado', Validator::RESPUESTAS),
-            'repetible'   => $v->enum('repetible', Validator::RESPUESTAS),
-            'evidencia'   => $v->enum('evidencia', Validator::RESPUESTAS),
+            'cumple'                  => $cumple,
+            'documentado'             => $v->enum('documentado', Validator::RESPUESTAS),
+            'repetible'               => $v->enum('repetible', Validator::RESPUESTAS),
+            'evidencia'               => $v->enum('evidencia', Validator::RESPUESTAS),
+            'justificacion_no_aplica' => $justificacion,
         ];
     }
 }

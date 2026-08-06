@@ -42,6 +42,14 @@ psql -U postgres -d cloud_cr -f database/Modelo_Relacional.sql
 psql -U postgres -d cloud_cr -f database/Datos_Iniciales.sql
 ```
 
+Sobre una base **ya creada** con una versión anterior del modelo, aplicar además la migración
+que agrega la justificación obligatoria del `N/A` (en una base nueva no hace falta: el modelo ya
+la incluye):
+
+```bash
+psql -U postgres -d cloud_cr -f database/Migracion_Justificacion_No_Aplica.sql
+```
+
 `Modelo_Relacional.sql` crea tipos, tablas y carga los catálogos cerrados de la norma (dominios,
 tipos de control, conceptos, dominios de seguridad, capacidades operativas). `Datos_Iniciales.sql`
 carga los 10 controles del instrumento con sus 43 preguntas y atributos N:M.
@@ -125,7 +133,7 @@ backend/
 | Controles | CRUD en `/controles` (filtros: `norma_id`, `dominio_norma_id`, `tipo`, `dimension`, `nivel`, `buscar`) |
 | Cuestionarios | CRUD en `/cuestionarios` |
 | Respuestas | `PUT/GET/DELETE /cuestionarios/{id}/respuestas/{preguntaId}` (upsert idempotente), `POST /cuestionarios/{id}/respuestas` (lote transaccional), `GET .../respuestas/pendientes` |
-| Reportes | `GET /cuestionarios/{id}/resumen`, `/mapa-calor`, `/hallazgos`, `/madurez`, `/riesgo` |
+| Reportes | `GET /cuestionarios/{id}/resumen`, `/mapa-calor`, `/hallazgos`, `/no-aplicables`, `/madurez`, `/riesgo` |
 
 ## 5. Estructura del frontend
 
@@ -168,7 +176,7 @@ entregables correspondientes.
 | `Preguntas` | 1:N con `Controles`; `UNIQUE (control_id, orden)` |
 | `Organizaciones`, `Evaluadores` | Usuarios; `correo UNIQUE`, `contrasena_hash` (bcrypt) |
 | `Cuestionarios_Control_Interno` | Auditoría: organización + evaluador + fecha |
-| `Respuestas` | Una fila por (cuestionario, pregunta) — `UNIQUE`; 4 atributos `ENUM respuesta_pregunta`: `cumple`, `documentado`, `repetible`, `evidencia` |
+| `Respuestas` | Una fila por (cuestionario, pregunta) — `UNIQUE`; 4 atributos `ENUM respuesta_pregunta`: `cumple`, `documentado`, `repetible`, `evidencia`; más `justificacion_no_aplica` (texto, obligatorio por `CHECK` cuando `cumple = 'N/A'` y `NULL` en cualquier otro caso) |
 
 Integridad clave: FKs en todas las relaciones; `ON DELETE CASCADE` solo de `Controles` hacia sus
 dependientes de catálogo (`Preguntas`, tablas puente); las respuestas nunca se borran en cascada.

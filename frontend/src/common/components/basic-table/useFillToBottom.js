@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 
-export const TOP_GAP = 24;
+// Alto de la barra superior fija (60px) mas el aire que la separa de la tabla:
+// la tabla sticky debe quedar debajo de la barra, no por detras.
+export const TOP_GAP = 72;
 
 // Aire de fondo de página que queda debajo de la tabla: entre su borde inferior y el
 // borde de la ventana mientras scrolleás, y entre la tabla y el footer al final.

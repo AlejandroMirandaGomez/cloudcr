@@ -32,6 +32,12 @@ final class ReporteController extends BaseController
         Response::ok($this->repo->hallazgos($cuestionarioId));
     }
 
+    /** Preguntas marcadas 'N/A' con la justificacion registrada por el evaluador. */
+    public function noAplicables(Request $r, int $cuestionarioId): void
+    {
+        Response::ok($this->repo->noAplicables($cuestionarioId));
+    }
+
     /** Nivel de madurez 0-5 por control, dominio y global (docs/Metodologia_Madurez.md). */
     public function madurez(Request $r, int $cuestionarioId): void
     {

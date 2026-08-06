@@ -132,7 +132,8 @@ final class CuestionarioRepository extends BaseRepository
                         r.cumple,
                         r.documentado,
                         r.repetible,
-                        r.evidencia
+                        r.evidencia,
+                        r.justificacion_no_aplica
                    FROM Respuestas r
                    JOIN Preguntas p ON p.id = r.pregunta_id
                    JOIN Controles ct ON ct.id = p.control_id

@@ -164,6 +164,37 @@ final class ReporteRepository extends BaseRepository
         );
     }
 
+    /** Preguntas marcadas 'N/A' con su justificacion, para la trazabilidad del reporte. */
+    public function noAplicables(int $cuestionarioId): array
+    {
+        $this->assertExists('Cuestionarios_Control_Interno', $cuestionarioId, 'el cuestionario');
+
+        return array_map(
+            static function (array $f): array {
+                $f['control_id']  = (int) $f['control_id'];
+                $f['pregunta_id'] = (int) $f['pregunta_id'];
+                $f['orden']       = (int) $f['orden'];
+                return $f;
+            },
+            $this->run(
+                "SELECT ct.id AS control_id,
+                        ct.codigo,
+                        ct.nombre AS control,
+                        p.id AS pregunta_id,
+                        p.orden,
+                        p.texto,
+                        r.justificacion_no_aplica
+                   FROM Respuestas r
+                   JOIN Preguntas p ON p.id = r.pregunta_id
+                   JOIN Controles ct ON ct.id = p.control_id
+                  WHERE r.cuestionario_id = :id
+                    AND r.cumple = 'N/A'
+                  ORDER BY LENGTH(ct.codigo), ct.codigo, p.orden",
+                ['id' => $cuestionarioId]
+            )->fetchAll()
+        );
+    }
+
     public function historialOrganizacion(int $organizacionId): array
     {
         $this->assertExists('Organizaciones', $organizacionId, 'la organizacion');

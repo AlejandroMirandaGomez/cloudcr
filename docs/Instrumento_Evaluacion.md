@@ -90,6 +90,15 @@ subjetivamente. Ver `Metodologia_Madurez.md`, sección 3.
 organización (ej. no usa proveedores externos de nube). Las preguntas con `cumple = N/A` se excluyen
 de todos los denominadores de cálculo; no premian ni castigan.
 
+**Justificación obligatoria del `N/A`.** Como el `N/A` retira la pregunta del cálculo, es la única
+respuesta que puede usarse para inflar artificialmente el resultado de una auditoría. Por eso el
+instrumento exige registrar el campo **`justificacion_no_aplica`** (10–500 caracteres) explicando
+por qué la práctica no es aplicable a la organización. La regla se aplica en tres capas: el
+formulario muestra el campo y bloquea el guardado, el API responde 422 si falta, y la tabla
+`Respuestas` tiene un `CHECK` que impide la fila. Cuando la respuesta deja de ser `N/A`, la
+justificación se descarta automáticamente. Las justificaciones quedan listadas en el reporte
+ejecutivo (sección *Preguntas no aplicables*), de modo que la exclusión sea auditable.
+
 ## 4. Catálogo de controles del instrumento
 
 | Código | Control | Peso | C | I | D | Preguntas |

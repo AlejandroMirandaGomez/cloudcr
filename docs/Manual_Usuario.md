@@ -17,10 +17,12 @@ calcular niveles de madurez y exposición al riesgo, y consultar reportes e indi
 - Navegador web moderno (Chrome, Edge, Firefox).
 - Dirección de la aplicación provista por el administrador
   (en desarrollo local: `http://localhost:5173`).
-- La aplicación es *responsive*: funciona en computadora, tableta y teléfono. El menú principal
-  se abre con el botón ☰ de la esquina superior izquierda en todos los tamaños de pantalla.
-- Desde el encabezado del menú puede alternar entre **modo claro y modo oscuro** (ícono de
-  sol/luna); la preferencia se recuerda en el navegador.
+- La aplicación es *responsive*: funciona en computadora, tableta y teléfono.
+- Todas las pantallas tienen una **barra superior** con el logo de CloudCR (lleva al inicio al
+  hacer clic), el botón ☰ que abre el menú principal, el interruptor de tema y el botón de
+  iniciar/cerrar sesión.
+- El interruptor **modo claro / modo oscuro** (ícono de sol/luna) recuerda su preferencia en el
+  navegador.
 
 ## 3. Tipos de usuario (roles)
 
@@ -48,9 +50,8 @@ calcular niveles de madurez y exposición al riesgo, y consultar reportes e indi
 
 ### 4.3 Cerrar sesión
 
-Al abrir el menú (☰), en la parte inferior aparece su nombre y rol; el ícono de salida cierra la
-sesión y regresa a la pantalla de login. En la página de inicio también hay un botón de
-iniciar/cerrar sesión en la esquina superior derecha.
+Use el botón **Cerrar sesión** de la barra superior. También puede hacerlo desde el menú (☰): en
+la parte inferior aparece su nombre y rol junto al ícono de salida.
 
 ### 4.4 Editar el perfil
 
@@ -59,7 +60,7 @@ cuenta con la que inició sesión.
 
 ## 5. Navegación
 
-El menú principal (botón ☰, esquina superior izquierda) muestra las opciones según su rol:
+El menú principal (botón ☰ de la barra superior) muestra las opciones según su rol:
 
 | Opción | Visible para | Descripción |
 |---|---|---|
@@ -108,10 +109,14 @@ y la tabla de controles con el progreso de cada uno (ej. `2/4` preguntas).
    - **Evidencia** — ¿hay registros que lo demuestran?
 3. Use **N/A** únicamente cuando la práctica no aplica al contexto de la organización (al marcar
    N/A en *Cumple*, los demás aspectos se marcan N/A automáticamente).
-4. Presione **Guardar avance** para registrar las respuestas en el sistema. El contador indica
+4. **Justificación obligatoria del N/A:** al marcar N/A aparece una caja de texto donde debe
+   explicar por qué la práctica no aplica (mínimo 10 caracteres). Sin esa justificación el sistema
+   no deja guardar la respuesta, porque las preguntas N/A se excluyen del cálculo de cumplimiento,
+   madurez y riesgo. Si luego cambia la respuesta a Sí o No, la justificación se descarta sola.
+5. Presione **Guardar avance** para registrar las respuestas en el sistema. El contador indica
    cuántos cambios están sin guardar. Puede **pausar la auditoría y continuarla otro día**: todo
    lo guardado persiste en la base de datos.
-5. El botón **Ver detalle** muestra la ficha completa del control (propósito, guía de la norma)
+6. El botón **Ver detalle** muestra la ficha completa del control (propósito, guía de la norma)
    como referencia durante la entrevista.
 
 > **Criterio del auditor:** ante duda entre Sí y No, responda **No**. El sistema está calibrado de
@@ -129,6 +134,8 @@ disponible desde *Mi Panel*). El reporte muestra:
 - **Nivel de madurez por control** en barras 0–5 con su nivel.
 - **Mapa de calor** de cumplimiento por dimensión.
 - **Controles con mayor exposición** (prioridades de remediación) y **principales hallazgos**.
+- **Preguntas no aplicables** con la justificación registrada, para dejar constancia de qué quedó
+  fuera del cálculo y por qué.
 
 El botón **Imprimir / PDF** genera la versión imprimible del reporte (use "Guardar como PDF" del
 navegador para exportarlo).

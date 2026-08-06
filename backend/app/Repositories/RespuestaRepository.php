@@ -18,26 +18,33 @@ final class RespuestaRepository extends BaseRepository
 
         $this->run(
             'INSERT INTO Respuestas
-                 (cuestionario_id, pregunta_id, cumple, documentado, repetible, evidencia)
+                 (cuestionario_id, pregunta_id, cumple, documentado, repetible, evidencia,
+                  justificacion_no_aplica)
              VALUES
                  (:cuestionario_id,
                   :pregunta_id,
                   CAST(:cumple      AS respuesta_pregunta),
                   CAST(:documentado AS respuesta_pregunta),
                   CAST(:repetible   AS respuesta_pregunta),
-                  CAST(:evidencia   AS respuesta_pregunta))
+                  CAST(:evidencia   AS respuesta_pregunta),
+                  :justificacion_no_aplica)
              ON CONFLICT (cuestionario_id, pregunta_id) DO UPDATE
-                SET cumple      = EXCLUDED.cumple,
-                    documentado = EXCLUDED.documentado,
-                    repetible   = EXCLUDED.repetible,
-                    evidencia   = EXCLUDED.evidencia',
+                SET cumple                  = EXCLUDED.cumple,
+                    documentado             = EXCLUDED.documentado,
+                    repetible               = EXCLUDED.repetible,
+                    evidencia               = EXCLUDED.evidencia,
+                    justificacion_no_aplica = EXCLUDED.justificacion_no_aplica',
             [
-                'cuestionario_id' => $cuestionarioId,
-                'pregunta_id'     => $preguntaId,
-                'cumple'          => $datos['cumple'],
-                'documentado'     => $datos['documentado'],
-                'repetible'       => $datos['repetible'],
-                'evidencia'       => $datos['evidencia'],
+                'cuestionario_id'         => $cuestionarioId,
+                'pregunta_id'             => $preguntaId,
+                'cumple'                  => $datos['cumple'],
+                'documentado'             => $datos['documentado'],
+                'repetible'               => $datos['repetible'],
+                'evidencia'               => $datos['evidencia'],
+                // Solo se conserva cuando la pregunta no aplica.
+                'justificacion_no_aplica' => $datos['cumple'] === 'N/A'
+                    ? $datos['justificacion_no_aplica']
+                    : null,
             ]
         );
 
@@ -82,7 +89,8 @@ final class RespuestaRepository extends BaseRepository
                     r.cumple,
                     r.documentado,
                     r.repetible,
-                    r.evidencia
+                    r.evidencia,
+                    r.justificacion_no_aplica
                FROM Respuestas r
                JOIN Preguntas p ON p.id = r.pregunta_id
                JOIN Controles c ON c.id = p.control_id

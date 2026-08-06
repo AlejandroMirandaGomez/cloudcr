@@ -133,9 +133,15 @@ CREATE TABLE Respuestas (
     documentado respuesta_pregunta NOT NULL,
     repetible respuesta_pregunta NOT NULL,
     evidencia respuesta_pregunta NOT NULL,
+    justificacion_no_aplica TEXT,
     FOREIGN KEY (cuestionario_id) REFERENCES Cuestionarios_Control_Interno(id),
     FOREIGN KEY (pregunta_id) REFERENCES Preguntas(id),
-    UNIQUE (cuestionario_id, pregunta_id)
+    UNIQUE (cuestionario_id, pregunta_id),
+    -- Marcar una pregunta como no aplicable exige justificarlo; si aplica, no se guarda texto.
+    CHECK (
+        (cumple = 'N/A' AND justificacion_no_aplica IS NOT NULL AND btrim(justificacion_no_aplica) <> '')
+        OR (cumple <> 'N/A' AND justificacion_no_aplica IS NULL)
+    )
 );
 
 -- Datos: valores fijos de la norma ==========================================

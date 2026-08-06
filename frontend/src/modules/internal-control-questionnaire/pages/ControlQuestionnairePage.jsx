@@ -6,7 +6,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import ControlQuestionnaire from '../components/control-questionnaire/ControlQuestionnaire.jsx';
+import ControlQuestionnaire, { MIN_JUSTIFICACION } from '../components/control-questionnaire/ControlQuestionnaire.jsx';
 import { PreguntasSkeleton } from '../../../common/components/loading/Skeletons.jsx';
 import { getControl } from '../../control-list/services/controles.js';
 import { getCuestionario, guardarLote } from '../services/cuestionarios.js';
@@ -37,6 +37,7 @@ export default function ControlQuestionnairePage() {
               documentado: r.documentado,
               repetible: r.repetible,
               evidencia: r.evidencia,
+              justificacion_no_aplica: r.justificacion_no_aplica ?? '',
             };
           }
         }
@@ -60,9 +61,16 @@ export default function ControlQuestionnairePage() {
 
       if (campo === 'cumple') {
         if (valor === 'N/A') {
-          siguiente = { cumple: 'N/A', documentado: 'N/A', repetible: 'N/A', evidencia: 'N/A' };
+          // Conserva la justificacion previa si la pregunta ya estaba marcada N/A.
+          siguiente = {
+            cumple: 'N/A',
+            documentado: 'N/A',
+            repetible: 'N/A',
+            evidencia: 'N/A',
+            justificacion_no_aplica: actual?.justificacion_no_aplica ?? '',
+          };
         } else if (actual == null || actual.cumple === 'N/A') {
-          siguiente = { cumple: valor, ...RESPUESTA_NUEVA };
+          siguiente = { cumple: valor, ...RESPUESTA_NUEVA, justificacion_no_aplica: '' };
         } else {
           siguiente = { ...actual, cumple: valor };
         }
@@ -81,7 +89,15 @@ export default function ControlQuestionnairePage() {
     try {
       const filas = [...dirty]
         .filter((preguntaId) => respuestas[preguntaId]?.cumple != null)
-        .map((preguntaId) => ({ pregunta_id: preguntaId, ...respuestas[preguntaId] }));
+        .map((preguntaId) => {
+          const r = respuestas[preguntaId];
+          return {
+            pregunta_id: preguntaId,
+            ...r,
+            justificacion_no_aplica:
+              r.cumple === 'N/A' ? r.justificacion_no_aplica.trim() : null,
+          };
+        });
       if (filas.length > 0) {
         await guardarLote(Number(cuestionarioId), filas);
       }
@@ -96,6 +112,13 @@ export default function ControlQuestionnairePage() {
 
   const respondidas = preguntas.filter((p) => respuestas[p.id]?.cumple != null).length;
   const backTo = `${LISTA_AUDITORIAS}/${cuestionarioId}`;
+
+  // Un 'N/A' sin justificar no se puede guardar: lo rechazan el API y la base.
+  const sinJustificar = [...dirty].filter((preguntaId) => {
+    const r = respuestas[preguntaId];
+    return r?.cumple === 'N/A'
+      && (r.justificacion_no_aplica ?? '').trim().length < MIN_JUSTIFICACION;
+  }).length;
 
   if (loading) {
     return (
@@ -171,15 +194,21 @@ export default function ControlQuestionnairePage() {
           onClick={guardar}
           variant="contained"
           startIcon={<SaveIcon />}
-          disabled={dirty.size === 0 || guardando}
+          disabled={dirty.size === 0 || guardando || sinJustificar > 0}
         >
           {guardando ? 'Guardando…' : 'Guardar avance'}
         </Button>
-        {dirty.size > 0 && (
+        {sinJustificar > 0 ? (
+          <Typography variant="body2" color="error.main">
+            {sinJustificar === 1
+              ? 'Falta justificar 1 pregunta marcada como «No aplica».'
+              : `Faltan justificar ${sinJustificar} preguntas marcadas como «No aplica».`}
+          </Typography>
+        ) : dirty.size > 0 ? (
           <Typography variant="body2" color="warning.main">
             {dirty.size} {dirty.size === 1 ? 'cambio sin guardar' : 'cambios sin guardar'}
           </Typography>
-        )}
+        ) : null}
       </Stack>
 
       <Snackbar

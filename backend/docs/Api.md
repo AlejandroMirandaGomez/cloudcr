@@ -37,6 +37,13 @@ paginacion); las de error, en `error`.
 
 Son sensibles a mayusculas y llevan tilde: `Sí`, no `Si`.
 
+**`justificacion_no_aplica`** (texto, 10–500 caracteres) acompana a las respuestas:
+
+- Es **obligatorio** cuando `cumple` es `N/A`; sin el, la respuesta se rechaza con 422.
+- Se **descarta** (se guarda `null`) cuando `cumple` es `Sí` o `No`, aunque venga en el cuerpo.
+
+La tabla `Respuestas` tiene el mismo CHECK, asi que la regla se cumple aunque se escriba por SQL.
+
 ## Paginacion
 
 Los listados aceptan `?limit=` (1–200, por defecto 50) y `?offset=`, y devuelven
@@ -248,6 +255,9 @@ debe mostrar "sin evaluar", no 0%.
 
 **GET `/cuestionarios/{id}/hallazgos`** — controles con respuesta `No`, con sus normas. Es la
 entrada para las recomendaciones automaticas de Persona 4.
+
+**GET `/cuestionarios/{id}/no-aplicables`** — preguntas respondidas `N/A` con su
+`justificacion_no_aplica`, para dejar trazabilidad de lo que quedo fuera del calculo.
 
 **GET `/cuestionarios/{id}/madurez`** — nivel de madurez 0-5 por control, por dominio y global,
 segun `docs/Metodologia_Madurez.md` (tasas de atributos → indice continuo → nivel con topes).

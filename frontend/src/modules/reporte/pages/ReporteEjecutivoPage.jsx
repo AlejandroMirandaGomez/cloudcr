@@ -10,7 +10,7 @@ import { useAuth } from '../../../common/context/AuthContext.jsx';
 import {
   getCuestionario, getHallazgos, getMapaCalor, getResumen,
 } from '../../internal-control-questionnaire/services/cuestionarios.js';
-import { getMadurez, getRiesgo } from '../services/reportes.js';
+import { getMadurez, getNoAplicables, getRiesgo } from '../services/reportes.js';
 import { CardsSkeleton } from '../../../common/components/loading/Skeletons.jsx';
 import MadurezChart from '../components/MadurezChart.jsx';
 import RiesgoChart from '../components/RiesgoChart.jsx';
@@ -70,9 +70,10 @@ export default function ReporteEjecutivoPage() {
       getRiesgo(cuestionarioId),
       getMapaCalor(cuestionarioId),
       getHallazgos(cuestionarioId),
+      getNoAplicables(cuestionarioId),
     ])
-      .then(([cuestionario, resumen, madurez, riesgo, mapaCalor, hallazgos]) =>
-        setDatos({ cuestionario, resumen, madurez, riesgo, mapaCalor, hallazgos }))
+      .then(([cuestionario, resumen, madurez, riesgo, mapaCalor, hallazgos, noAplicables]) =>
+        setDatos({ cuestionario, resumen, madurez, riesgo, mapaCalor, hallazgos, noAplicables }))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [cuestionarioId]);
@@ -106,7 +107,7 @@ export default function ReporteEjecutivoPage() {
     );
   }
 
-  const { cuestionario, resumen, madurez, riesgo, mapaCalor, hallazgos } = datos;
+  const { cuestionario, resumen, madurez, riesgo, mapaCalor, hallazgos, noAplicables } = datos;
   const general = riesgo.indice_general;
   const madurezGlobal = madurez.global.indice_madurez;
   const topExposicion = riesgo.controles.filter((c) => c.exposicion > 0).slice(0, 5);
@@ -256,6 +257,34 @@ export default function ReporteEjecutivoPage() {
                       primary={`${h.codigo} — ${h.control} (peso ${h.peso})`}
                       secondary={h.texto}
                     />
+                  </ListItem>
+                </Box>
+              ))}
+            </List>
+          </Paper>
+        </Seccion>
+      )}
+
+      {noAplicables.length > 0 && (
+        <Seccion
+          titulo="Preguntas no aplicables"
+          descripcion="Excluidas del cálculo de cumplimiento, madurez y riesgo, con la justificación registrada durante la auditoría."
+        >
+          <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+            <List dense disablePadding>
+              {noAplicables.map((na, i) => (
+                <Box key={na.pregunta_id}>
+                  {i > 0 && <Divider component="li" />}
+                  <ListItem sx={{ display: 'block', py: 1.5 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {na.codigo} — {na.control}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                      {na.texto}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.75 }}>
+                      <b>Justificación:</b> {na.justificacion_no_aplica}
+                    </Typography>
                   </ListItem>
                 </Box>
               ))}

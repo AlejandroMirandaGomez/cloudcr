@@ -4,7 +4,6 @@ import {
   Paper, Stack, Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import LoginIcon from '@mui/icons-material/Login';
 import SecurityIcon from '@mui/icons-material/Security';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import BarChartIcon from '@mui/icons-material/BarChart';
@@ -54,27 +53,10 @@ function iniciales(nombre) {
 export default function HomePage() {
   const navigate = useNavigate();
   const theme = useTheme();
-  const { session, logout } = useAuth();
-
-  const handleAuthAction = () => {
-    if (session) logout();
-    else navigate('/login');
-  };
+  const { session } = useAuth();
 
   return (
     <Box>
-      {/* Barra superior — separada del hero para no chocar con el titulo CloudCR */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 2, pt: 0.5, pb: 1.5 }}>
-        <Button
-          variant={session ? 'outlined' : 'contained'}
-          size="small"
-          startIcon={<LoginIcon />}
-          onClick={handleAuthAction}
-        >
-          {session ? `Cerrar sesión (${session.nombre})` : 'Iniciar sesión'}
-        </Button>
-      </Box>
-
       {/* Hero */}
       <Box
         sx={{

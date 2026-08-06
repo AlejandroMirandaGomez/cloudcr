@@ -1,6 +1,6 @@
 import { api } from './api.js';
 
-const AUTH_KEY = 'cloudcr.auth';
+export const AUTH_KEY = 'cloudcr.auth';
 
 export async function login(correo, contrasena, tipo) {
   const datos = await api.post('/auth/login', { correo, contrasena, tipo });

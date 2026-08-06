@@ -92,6 +92,7 @@ $router->delete('/cuestionarios/{id}/respuestas/{preguntaId}', [$respuestas, 'de
 $router->get('/cuestionarios/{id}/resumen', [$reportes, 'resumen']);
 $router->get('/cuestionarios/{id}/mapa-calor', [$reportes, 'mapaCalor']);
 $router->get('/cuestionarios/{id}/hallazgos', [$reportes, 'hallazgos']);
+$router->get('/cuestionarios/{id}/no-aplicables', [$reportes, 'noAplicables']);
 $router->get('/cuestionarios/{id}/madurez', [$reportes, 'madurez']);
 $router->get('/cuestionarios/{id}/riesgo', [$reportes, 'riesgo']);
 

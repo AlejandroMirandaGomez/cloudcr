@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Drawer, IconButton, List, ListItemButton,
   ListItemIcon, ListItemText, Tooltip, Typography, Divider,
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ListAltIcon from '@mui/icons-material/ListAlt';
@@ -12,10 +10,8 @@ import HomeIcon from '@mui/icons-material/Home';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
-import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
-import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { useColorMode } from '../../context/ColorModeContext.jsx';
+import useCerrarSesion from '../../hooks/useCerrarSesion.js';
 
 const DRAWER_WIDTH = 280;
 
@@ -56,8 +52,8 @@ const ROL_LABEL = { evaluador: 'Evaluador', organizacion: 'Organización' };
 function DrawerContent({ onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { session, logout } = useAuth();
-  const { mode, toggleMode } = useColorMode();
+  const { session } = useAuth();
+  const cerrarSesion = useCerrarSesion();
 
   const handleNav = (path) => {
     navigate(path);
@@ -65,28 +61,20 @@ function DrawerContent({ onClose }) {
   };
 
   const handleLogout = () => {
-    logout();
     onClose();
-    navigate('/login', { replace: true });
+    cerrarSesion();
   };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Header */}
       <Box sx={{ px: 2, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 52 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'primary.main', whiteSpace: 'nowrap' }}>
-          CloudCR
+        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Menú
         </Typography>
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Tooltip title={mode === 'dark' ? 'Modo claro' : 'Modo oscuro'}>
-            <IconButton size="small" onClick={toggleMode} aria-label="Cambiar tema">
-              {mode === 'dark' ? <LightModeOutlinedIcon fontSize="small" /> : <DarkModeOutlinedIcon fontSize="small" />}
-            </IconButton>
-          </Tooltip>
-          <IconButton size="small" onClick={onClose} aria-label="Cerrar menú">
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Box>
+        <IconButton size="small" onClick={onClose} aria-label="Cerrar menú">
+          <CloseIcon fontSize="small" />
+        </IconButton>
       </Box>
 
       <Divider />
@@ -164,34 +152,18 @@ function DrawerContent({ onClose }) {
   );
 }
 
-/** Menú principal: hamburguesa en todos los tamaños, con drawer temporal. */
-export default function Sidebar() {
-  const [open, setOpen] = useState(false);
-
+/** Menú principal: drawer temporal controlado desde la barra superior. */
+export default function Sidebar({ open, onClose }) {
   return (
-    <>
-      <Box className="no-print" sx={{ position: 'fixed', top: 12, left: 12, zIndex: 1300 }}>
-        <Tooltip title="Menú">
-          <IconButton
-            onClick={() => setOpen(true)}
-            aria-label="Abrir menú"
-            sx={{ bgcolor: 'background.paper', boxShadow: 2, '&:hover': { bgcolor: 'background.paper' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
-
-      <Drawer
-        variant="temporary"
-        open={open}
-        onClose={() => setOpen(false)}
-        ModalProps={{ keepMounted: true }}
-        sx={{ '& .MuiDrawer-paper': { width: DRAWER_WIDTH } }}
-      >
-        <DrawerContent onClose={() => setOpen(false)} />
-      </Drawer>
-    </>
+    <Drawer
+      variant="temporary"
+      open={open}
+      onClose={onClose}
+      ModalProps={{ keepMounted: true }}
+      sx={{ '& .MuiDrawer-paper': { width: DRAWER_WIDTH } }}
+    >
+      <DrawerContent onClose={onClose} />
+    </Drawer>
   );
 }
 
