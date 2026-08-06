@@ -12,7 +12,7 @@ import { getControl } from '../../control-list/services/controles.js';
 import { getCuestionario, guardarLote } from '../services/cuestionarios.js';
 
 const LISTA_AUDITORIAS = '/internal-control-questionnaire';
-const RESPUESTA_NUEVA = { documentado: 'No', repetible: 'No', evidencia: 'No' };
+const respuestaNueva = (valor) => ({ documentado: valor, repetible: valor, evidencia: valor });
 
 export default function ControlQuestionnairePage() {
   const { cuestionarioId, controlId } = useParams();
@@ -70,7 +70,7 @@ export default function ControlQuestionnairePage() {
             justificacion_no_aplica: actual?.justificacion_no_aplica ?? '',
           };
         } else if (actual == null || actual.cumple === 'N/A') {
-          siguiente = { cumple: valor, ...RESPUESTA_NUEVA, justificacion_no_aplica: '' };
+          siguiente = { cumple: valor, ...respuestaNueva(valor), justificacion_no_aplica: '' };
         } else {
           siguiente = { ...actual, cumple: valor };
         }
@@ -156,6 +156,12 @@ export default function ControlQuestionnairePage() {
         <Button
           component={RouterLink}
           to={`/control-list/${control.id}`}
+          state={{
+            volverA: {
+              to: `${backTo}/control/${controlId}`,
+              label: 'Volver al cuestionario',
+            },
+          }}
           startIcon={<VisibilityIcon />}
           variant="outlined"
         >

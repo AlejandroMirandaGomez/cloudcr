@@ -135,7 +135,13 @@ export default function Table({
         state: mergedState,
 
         enableRowActions,
-        renderRowActions,
+        renderRowActions: renderRowActions
+            ? (props) => (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {renderRowActions(props)}
+                </Box>
+            )
+            : undefined,
         renderDetailPanel: renderDetailPanel
             ? (props) => (
                 <Box

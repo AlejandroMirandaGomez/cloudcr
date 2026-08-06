@@ -151,6 +151,12 @@ export default function CuestionarioControlesPage() {
               <IconButton
                 component={RouterLink}
                 to={`/control-list/${row.original.id}`}
+                state={{
+                  volverA: {
+                    to: `${LISTA_AUDITORIAS}/${cuestionarioId}`,
+                    label: 'Volver al cuestionario',
+                  },
+                }}
                 size="small"
                 aria-label="Ver ficha del control"
               >
