@@ -30,7 +30,7 @@ const SERVICIOS = [
   {
     icon: <ListAltIcon fontSize="large" color="primary" />,
     titulo: 'Catálogo de Controles ISO 27002',
-    descripcion: 'Acceso completo al catálogo de controles con propiedades de confidencialidad, integridad y disponibilidad, guías de implementación y preguntas de auditoría.',
+    descripcion: 'Acceso completo al catálogo de controles con propiedades de confidencialidad, integridad y disponibilidad, guías de implementación y preguntas de cuestionario.',
   },
 ];
 
