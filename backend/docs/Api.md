@@ -129,6 +129,13 @@ Cada control devuelve la norma, el dominio, los cuatro atributos N:M y sus pregu
   "preguntas": [ { "id": 14, "orden": 1, "texto": "..." } ] }
 ```
 
+**GET `/controles/{id}`** agrega ademas `niveles_madurez`, los cinco descriptores de madurez de ese
+control. No viene en el listado, donde solo engordaria la respuesta:
+
+```json
+{ "niveles_madurez": [ { "nivel": 1, "nombre": "Inicial / Ad Hoc", "descripcion": "..." } ] }
+```
+
 **POST `/controles`** — HU-005, crea el control, sus atributos y sus preguntas en una
 transaccion:
 
@@ -163,7 +170,8 @@ arreglo de atributos que se envie reemplaza el conjunto completo (`[]` lo vacia)
 sincroniza por posicion: actualiza las existentes, agrega las nuevas y elimina las sobrantes;
 si una pregunta sobrante ya tiene respuestas, responde 409 y no borra nada.
 
-**DELETE `/controles/{id}`** — 409 si alguna de sus preguntas ya tiene respuestas.
+**DELETE `/controles/{id}`** — 409 si alguna de sus preguntas ya tiene respuestas, o si el control
+tiene niveles de madurez declarados en algun cuestionario.
 
 ## Cuestionarios — HU-006, HU-016, HU-017
 
@@ -220,6 +228,40 @@ respuesta en ese cuestionario, con el codigo y el nombre de su control.
 
 **GET / DELETE `/cuestionarios/{id}/respuestas/{preguntaId}`** — consulta o borra una respuesta.
 
+## Nivel de madurez declarado
+
+El evaluador declara el nivel 1-5 de cada control antes de responder sus preguntas, escogiendo entre
+los cinco descriptores del control (`docs/Metodologia_Madurez.md`). Los descriptores viajan en el
+detalle del control: `GET /controles/{id}` trae `niveles_madurez` con `nivel`, `nombre` y
+`descripcion`.
+
+**PUT `/cuestionarios/{id}/niveles-madurez/{controlId}`** — upsert idempotente: 201 la primera vez,
+200 en adelante.
+
+```json
+{ "nivel": 3 }
+```
+
+```json
+{ "data": { "control_id": 1, "codigo": "8.2", "control": "Derechos de acceso privilegiado",
+            "nivel": 3, "nivel_nombre": "Definido", "nivel_descripcion": "Existe un procedimiento…" } }
+```
+
+Un `nivel` fuera de 1-5 responde 422. Borrar el cuestionario borra sus niveles declarados; un
+control con niveles declarados no se puede eliminar (409 con el conteo).
+
+**GET `/cuestionarios/{id}/niveles-madurez`** — niveles declarados en el cuestionario. Los controles
+que aun no tienen nivel simplemente no aparecen. `meta.escala` trae los cinco niveles del catalogo.
+
+```json
+{ "data": [ { "control_id": 1, "codigo": "8.2", "control": "...", "nivel": 3,
+              "nivel_nombre": "Definido", "nivel_descripcion": "…" } ],
+  "meta": { "escala": [ { "nivel": 1, "nombre": "Inicial / Ad Hoc" } ] } }
+```
+
+El detalle del cuestionario (`GET /cuestionarios/{id}`) incluye el mismo arreglo en
+`niveles_madurez`, para que el frontend cargue la pantalla con una sola peticion.
+
 ## Reportes — HU-018
 
 **GET `/cuestionarios/{id}/resumen`**
@@ -229,7 +271,7 @@ respuesta en ese cuestionario, con el codigo y el nombre de su control.
     "cuestionario_id": 1, "total_respondidos": 5,
     "cumplidos": 3, "no_cumplidos": 1, "no_aplica": 1,
     "aplicables": 4, "cumplimiento": 0.75,
-    "madurez_insumos": { "tasa_documentado": 0.6, "tasa_repetible": 0.8, "tasa_evidencia": 0.6 } } }
+    "atributos": { "tasa_documentado": 0.6, "tasa_repetible": 0.8, "tasa_evidencia": 0.6 } } }
 ```
 
 **GET `/cuestionarios/{id}/mapa-calor`** — HU-018:
@@ -259,29 +301,31 @@ entrada para las recomendaciones automaticas de Persona 4.
 **GET `/cuestionarios/{id}/no-aplicables`** — preguntas respondidas `N/A` con su
 `justificacion_no_aplica`, para dejar trazabilidad de lo que quedo fuera del calculo.
 
-**GET `/cuestionarios/{id}/madurez`** — nivel de madurez 0-5 por control, por dominio y global,
-segun `docs/Metodologia_Madurez.md` (tasas de atributos → indice continuo → nivel con topes).
+**GET `/cuestionarios/{id}/madurez`** — nivel de madurez 1-5 por control, por dominio y global,
+segun `docs/Metodologia_Madurez.md` (nivel declarado por el evaluador → promedio ponderado por peso).
 
 ```json
 { "data": {
     "cuestionario_id": 1,
-    "escala": [ { "nivel": 0, "descripcion": "El control no existe" } ],
+    "escala": [ { "nivel": 1, "nombre": "Inicial / Ad Hoc" } ],
     "controles": [
       { "control_id": 1, "codigo": "8.2", "nombre": "...", "dominio_norma": "Tecnologicos",
         "peso": 9, "preguntas": 4, "respondidas": 3, "aplicables": 2,
         "tasas": { "cumple": 0.5, "documentado": 0.5, "repetible": 0, "evidencia": 0 },
-        "indice_madurez": 1.25, "nivel_madurez": 1 } ],
+        "indice_madurez": 4, "nivel_madurez": 4, "nivel_nombre": "Administrado y Medible" } ],
     "dominios": [ { "dominio_norma": "Tecnologicos", "clausula": 8,
-                    "controles_evaluados": 3, "indice_madurez": 3.33 } ],
-    "global": { "controles_evaluados": 3, "indice_madurez": 3.33 } } }
+                    "controles_evaluados": 3, "indice_madurez": 3.67 } ],
+    "global": { "controles_evaluados": 3, "indice_madurez": 3.67 } } }
 ```
 
-Un control sin preguntas aplicables (sin respuestas, o todo `N/A`) trae `tasas`,
-`indice_madurez` y `nivel_madurez` en `null` y queda fuera de dominios y del global.
-Los agregados ponderan por `peso`.
+Un control sin nivel declarado trae `indice_madurez`, `nivel_madurez` y `nivel_nombre` en `null`
+y queda fuera de dominios y del global; `indice_madurez` por control es el nivel declarado (los
+agregados si son fraccionarios porque ponderan por `peso`). `tasas` es informativo —las tasas de
+`Si` de los cuatro atributos sobre las preguntas aplicables— y viene en `null` cuando el control
+no tiene preguntas aplicables; ya no interviene en el calculo de la madurez.
 
 **GET `/cuestionarios/{id}/riesgo`** — exposicion al riesgo C/I/D e indice general, segun
-`docs/Metodologia_Riesgo.md` (`E = Σ peso·r·(1−IM/5) / Σ peso·r`; `r`: Primario 1.0,
+`docs/Metodologia_Riesgo.md` (`E = Σ peso·r·(1−nivel/5) / Σ peso·r`; `r`: Primario 1.0,
 Secundario 0.5, sin relacion 0).
 
 ```json
@@ -294,8 +338,8 @@ Secundario 0.5, sin relacion 0).
                        "exposicion": 0.375, "nivel_riesgo": "medio", "color": "amarillo" } ],
     "indice_general": { "exposicion": 0.3393, "nivel_riesgo": "medio", "color": "amarillo" },
     "controles": [
-      { "control_id": 1, "codigo": "8.2", "peso": 9, "indice_madurez": 1.25,
-        "deficiencia": 0.75, "exposicion": 0.675 } ] } }
+      { "control_id": 1, "codigo": "8.2", "peso": 9, "indice_madurez": 1, "nivel_madurez": 1,
+        "deficiencia": 0.8, "exposicion": 0.72 } ] } }
 ```
 
 `controles` viene ordenado por `exposicion` descendente (ranking de remediacion). Una

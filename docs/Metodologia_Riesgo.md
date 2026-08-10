@@ -14,7 +14,7 @@ simplificado a los datos que el instrumento captura):
 Riesgo ≈ Probabilidad de que el control falle × Impacto de esa falla
 ```
 
-En una auditoría de controles no se miden amenazas ni frecuencias de incidentes; lo que sí se mide
+En un cuestionario de controles no se miden amenazas ni frecuencias de incidentes; lo que sí se mide
 es **qué tan deficiente está cada salvaguarda**. Por eso el modelo usa dos proxies observables:
 
 - **Probabilidad → deficiencia del control.** Un control inmaduro falla con mayor probabilidad.
@@ -28,17 +28,19 @@ es **qué tan deficiente está cada salvaguarda**. Por eso el modelo usa dos pro
 
 ### 2.1 Deficiencia del control
 
-A partir del índice de madurez continuo `IM(c) ∈ [0, 5]` (ver `Metodologia_Madurez.md`):
+A partir del nivel de madurez `n(c) ∈ [1, 5]` que el evaluador declaró para el control (ver
+`Metodologia_Madurez.md`):
 
 ```
-d(c) = 1 − IM(c) / 5          ∈ [0, 1]
+d(c) = 1 − n(c) / 5          ∈ [0, 0.8]
 ```
 
-- `d = 0`: control en madurez plena (nivel 5) → no aporta riesgo.
-- `d = 1`: control inexistente (nivel 0) → aporta todo su riesgo potencial.
+- `d = 0`: control optimizado (nivel 5) → no aporta riesgo.
+- `d = 0.8`: control inicial / ad hoc (nivel 1) → aporta casi todo su riesgo potencial.
 
-Se usa el índice **continuo** y no el nivel discreto para no perder granularidad: dos controles de
-nivel 3 con `IM = 2.6` e `IM = 3.4` no exponen al mismo riesgo.
+El máximo es `0.8` y no `1` porque la escala arranca en 1: un control declarado sigue existiendo, por
+improvisado que sea. El caso "el control no existe" no se modela con deficiencia 1, sino dejando el
+control sin declarar, y entonces queda fuera del cálculo (sección 3.4) y se reporta como pendiente.
 
 ### 2.2 Relevancia dimensional
 
@@ -102,7 +104,7 @@ exposición al riesgo" y "controles con menor nivel de madurez" que pide el enun
 
 ### 3.4 Exclusiones
 
-- Controles sin preguntas aplicables (todo `N/A`): fuera de numerador y denominador.
+- Controles sin nivel de madurez declarado: fuera de numerador y denominador.
 - Dimensiones donde el control tiene relación `NULL`: factor 0, no participa.
 - Si una dimensión queda sin ningún control aplicable, se reporta "sin datos" (igual que hace hoy
   el mapa de calor con denominador 0), nunca 0 % de riesgo.
@@ -120,46 +122,46 @@ Coherente con la escala de cumplimiento ya usada por la aplicación
 
 ## 5. Ejemplo numérico completo
 
-Auditoría con tres controles evaluados (valores de `IM` ya calculados según
+Cuestionario con tres controles evaluados (niveles declarados según
 `Metodologia_Madurez.md`):
 
-| Control | peso | C | I | D | IM | d = 1 − IM/5 |
+| Control | peso | C | I | D | n | d = 1 − n/5 |
 |---|---|---|---|---|---|---|
-| 8.2 Accesos privilegiados | 9 | 1.0 | 1.0 | 0.5 | 4.0 | 0.20 |
-| 8.13 Copia de seguridad | 9 | 0 | 1.0 | 1.0 | 2.81 | 0.44 |
-| 8.24 Criptografía | 8 | 1.0 | 1.0 | 0.5 | 1.5 | 0.70 |
+| 8.2 Accesos privilegiados | 9 | 1.0 | 1.0 | 0.5 | 4 | 0.20 |
+| 8.13 Copia de seguridad | 9 | 0 | 1.0 | 1.0 | 3 | 0.40 |
+| 8.24 Criptografía | 8 | 1.0 | 1.0 | 0.5 | 1 | 0.80 |
 
 **Confidencialidad:**
 
 ```
-Numerador   = 9(1.0)(0.20) + 9(0)(0.44) + 8(1.0)(0.70) = 1.80 + 0 + 5.60 = 7.40
+Numerador   = 9(1.0)(0.20) + 9(0)(0.40) + 8(1.0)(0.80) = 1.80 + 0 + 6.40 = 8.20
 Denominador = 9(1.0) + 0 + 8(1.0) = 17.0
-E(C) = 7.40 / 17.0 = 0.435  →  43.5 %  →  riesgo ALTO (rojo)
+E(C) = 8.20 / 17.0 = 0.482  →  48.2 %  →  riesgo ALTO (rojo)
 ```
 
 **Integridad:**
 
 ```
-Numerador   = 9(1.0)(0.20) + 9(1.0)(0.44) + 8(1.0)(0.70) = 1.80 + 3.94 + 5.60 = 11.34
+Numerador   = 9(1.0)(0.20) + 9(1.0)(0.40) + 8(1.0)(0.80) = 1.80 + 3.60 + 6.40 = 11.80
 Denominador = 9 + 9 + 8 = 26.0
-E(I) = 11.34 / 26.0 = 0.436  →  43.6 %  →  riesgo ALTO (rojo)
+E(I) = 11.80 / 26.0 = 0.454  →  45.4 %  →  riesgo ALTO (rojo)
 ```
 
 **Disponibilidad:**
 
 ```
-Numerador   = 9(0.5)(0.20) + 9(1.0)(0.44) + 8(0.5)(0.70) = 0.90 + 3.94 + 2.80 = 7.64
+Numerador   = 9(0.5)(0.20) + 9(1.0)(0.40) + 8(0.5)(0.80) = 0.90 + 3.60 + 3.20 = 7.70
 Denominador = 4.5 + 9 + 4 = 17.5
-E(D) = 7.64 / 17.5 = 0.437  →  43.7 %  →  riesgo ALTO (rojo)
+E(D) = 7.70 / 17.5 = 0.440  →  44.0 %  →  riesgo ALTO (rojo)
 ```
 
 **Índice general:**
 
 ```
-E(G) = (7.40 + 11.34 + 7.64) / (17.0 + 26.0 + 17.5) = 26.38 / 60.5 = 0.436  →  43.6 %
+E(G) = (8.20 + 11.80 + 7.70) / (17.0 + 26.0 + 17.5) = 27.70 / 60.5 = 0.458  →  45.8 %
 ```
 
-**Ranking por control:** `ER(8.24) = 0.8 × 0.70 = 0.56` > `ER(8.13) = 0.9 × 0.44 = 0.39` >
+**Ranking por control:** `ER(8.24) = 0.8 × 0.80 = 0.64` > `ER(8.13) = 0.9 × 0.40 = 0.36` >
 `ER(8.2) = 0.9 × 0.20 = 0.18`. La criptografía es la prioridad de remediación aunque su peso sea
 menor que el de los otros dos: su madurez es mucho más baja.
 
@@ -169,9 +171,9 @@ El enunciado valora explícitamente la coherencia entre componentes. La cadena c
 
 ```
 Controles seleccionados (peso, C/I/D justificados)
-   → Instrumento (43 preguntas, 4 atributos observables por pregunta)
-      → Madurez (tasas de atributos → IM 0–5 con topes cualitativos)
-         → Riesgo (deficiencia = 1 − IM/5, ponderada por peso y relación C/I/D)
+   → Instrumento (nivel de madurez declarado por control + 43 preguntas con 4 atributos)
+      → Madurez (nivel 1–5 escogido entre los descriptores COBIT del control)
+         → Riesgo (deficiencia = 1 − nivel/5, ponderada por peso y relación C/I/D)
             → Indicadores (mapa de calor C/I/D, ranking de controles, índice general, semáforo)
 ```
 
@@ -182,18 +184,20 @@ capturados fuera del instrumento.
 
 **Propiedades:**
 
-- Determinista y reproducible; auditable eslabón por eslabón.
-- Monótono: mejorar cualquier respuesta reduce (o mantiene) la exposición, nunca la aumenta.
+- Determinista y reproducible: los mismos niveles declarados producen siempre la misma exposición.
+- Monótono: subir el nivel de madurez de cualquier control reduce (o mantiene) la exposición, nunca
+  la aumenta.
 - Acotado en `[0, 1]` en todos los niveles (control, dimensión, general), apto para semáforos y
-  comparaciones entre auditorías de distinto tamaño.
-- Implementable con el esquema actual sin cambios de DDL.
+  comparaciones entre cuestionarios de distinto tamaño.
 
 **Limitaciones (asumidas y documentadas):**
 
 - No modela amenazas ni frecuencia de incidentes: es riesgo **de control** (deficiencia de
-  salvaguardas), no riesgo de escenario. Es lo apropiado para una auditoría de controles.
+  salvaguardas), no riesgo de escenario. Es lo apropiado para un cuestionario de controles.
+- La deficiencia hereda el juicio experto del nivel declarado; su trazabilidad depende de que el
+  evaluador haya escogido el descriptor que efectivamente corresponde a la organización.
 - El factor 0.5 de `Secundario` y los umbrales del semáforo son decisiones de calibración del
-  equipo; se documentan aquí para poder revisarlos con datos reales de auditorías futuras.
+  equipo; se documentan aquí para poder revisarlos con datos reales de cuestionarios futuros.
 - El impacto se hereda del `peso` estático del catálogo; una organización con requisitos atípicos
   (ej. disponibilidad extrema) puede requerir recalibrar pesos en su instancia del catálogo, cosa
   que la aplicación permite mediante la edición de controles.

@@ -8,7 +8,8 @@ basada en ISO/IEC 27002 — Proyecto Integrador, Administración de Bases de Dat
 ```
 backend/     API REST en PHP 8.1 + PostgreSQL (ver backend/README.md)
 frontend/    Aplicación web en React + Vite (ver frontend/README.md)
-database/    Modelo_Relacional.sql (esquema) y Datos_Iniciales.sql (catálogo de controles)
+database/    Modelo_Relacional.sql (esquema), Datos_Iniciales.sql (catálogo de controles,
+             preguntas y descriptores de madurez) y las migraciones Migracion_*.sql
 docs/        Entregables del curso (pendiente)
 ```
 
