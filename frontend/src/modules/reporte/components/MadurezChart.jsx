@@ -1,14 +1,9 @@
 import { Box, Chip, Paper, Stack, Typography } from '@mui/material';
 import BarraHorizontal from './BarraHorizontal.jsx';
 
-/**
- * Grafico de barras horizontales: indice de madurez (0-5) por control.
- * Una sola serie → un solo tono (primario de la marca); la magnitud la da la
- * longitud, no el color.
- */
 export default function MadurezChart({ controles }) {
-  const evaluados = controles.filter((c) => c.indice_madurez !== null);
-  const sinEvaluar = controles.filter((c) => c.indice_madurez === null);
+  const evaluados = controles.filter((c) => c.nivel_madurez !== null);
+  const sinEvaluar = controles.filter((c) => c.nivel_madurez === null);
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
@@ -34,23 +29,23 @@ export default function MadurezChart({ controles }) {
               />
             </Stack>
             <BarraHorizontal
-              valor={c.indice_madurez}
+              valor={c.nivel_madurez}
               max={5}
-              etiqueta={`${c.indice_madurez.toFixed(2)}`}
-              tooltip={`${c.codigo} ${c.nombre} — índice ${c.indice_madurez.toFixed(2)} de 5 (nivel ${c.nivel_madurez}). Cumple ${Math.round(c.tasas.cumple * 100)}%, documentado ${Math.round(c.tasas.documentado * 100)}%, repetible ${Math.round(c.tasas.repetible * 100)}%, evidencia ${Math.round(c.tasas.evidencia * 100)}%.`}
+              etiqueta={`${c.nivel_madurez}`}
+              tooltip={`${c.codigo} ${c.nombre} — nivel ${c.nivel_madurez} de 5${c.nivel_nombre ? ` (${c.nivel_nombre})` : ''}. Peso ${c.peso}.`}
             />
           </Box>
         ))}
 
         {evaluados.length === 0 && (
           <Typography variant="body2" color="text.secondary">
-            Ningún control tiene respuestas aplicables todavía.
+            Ningún control tiene su nivel de madurez declarado todavía.
           </Typography>
         )}
 
         {sinEvaluar.length > 0 && (
           <Typography variant="caption" color="text.disabled">
-            Sin evaluar: {sinEvaluar.map((c) => c.codigo).join(', ')}
+            Sin nivel declarado: {sinEvaluar.map((c) => c.codigo).join(', ')}
           </Typography>
         )}
       </Stack>
