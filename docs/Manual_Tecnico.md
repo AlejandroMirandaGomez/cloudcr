@@ -42,17 +42,26 @@ psql -U postgres -d cloud_cr -f database/Modelo_Relacional.sql
 psql -U postgres -d cloud_cr -f database/Datos_Iniciales.sql
 ```
 
-Sobre una base **ya creada** con una versión anterior del modelo, aplicar además la migración
-que agrega la justificación obligatoria del `N/A` (en una base nueva no hace falta: el modelo ya
-la incluye):
+Sobre una base **ya creada** con una versión anterior del modelo, aplicar además las migraciones (en
+una base nueva no hacen falta: el modelo y los datos iniciales ya las incluyen):
 
 ```bash
 psql -U postgres -d cloud_cr -f database/Migracion_Justificacion_No_Aplica.sql
 ```
 
+```bash
+psql -U postgres -d cloud_cr -f database/Migracion_Niveles_Madurez.sql
+```
+
+La segunda agrega las tablas del nivel de madurez declarado por control (`Escala_Madurez`,
+`Niveles_Madurez_Control`, `Madurez_Controles`) y carga los cinco descriptores de cada uno de los 10
+controles. Los cuestionarios anteriores a la migración quedan sin nivel declarado: el reporte los
+lista como pendientes hasta que el evaluador los declare.
+
 `Modelo_Relacional.sql` crea tipos, tablas y carga los catálogos cerrados de la norma (dominios,
-tipos de control, conceptos, dominios de seguridad, capacidades operativas). `Datos_Iniciales.sql`
-carga los 10 controles del instrumento con sus 43 preguntas y atributos N:M.
+tipos de control, conceptos, dominios de seguridad, capacidades operativas y la escala de madurez).
+`Datos_Iniciales.sql` carga los 10 controles del instrumento con sus 43 preguntas, sus 50
+descriptores de madurez y atributos N:M.
 
 ### 3.2 Backend
 
@@ -133,6 +142,7 @@ backend/
 | Controles | CRUD en `/controles` (filtros: `norma_id`, `dominio_norma_id`, `tipo`, `dimension`, `nivel`, `buscar`) |
 | Cuestionarios | CRUD en `/cuestionarios` |
 | Respuestas | `PUT/GET/DELETE /cuestionarios/{id}/respuestas/{preguntaId}` (upsert idempotente), `POST /cuestionarios/{id}/respuestas` (lote transaccional), `GET .../respuestas/pendientes` |
+| Nivel de madurez | `GET /cuestionarios/{id}/niveles-madurez`, `PUT /cuestionarios/{id}/niveles-madurez/{controlId}` (upsert idempotente, cuerpo `{"nivel": 1-5}`) |
 | Reportes | `GET /cuestionarios/{id}/resumen`, `/mapa-calor`, `/hallazgos`, `/no-aplicables`, `/madurez`, `/riesgo` |
 
 ## 5. Estructura del frontend
@@ -154,7 +164,7 @@ frontend/src/
     ├── home/                     Landing pública
     ├── dashboard/                Panel por rol (evaluador / organización)
     ├── control-list/             Catálogo de controles (lista, detalle, edición)
-    ├── internal-control-questionnaire/   Flujo de auditoría (auditorías → controles → preguntas)
+    ├── internal-control-questionnaire/   Flujo de cuestionario (cuestionarios → controles → preguntas)
     └── reporte/                  Reporte ejecutivo imprimible (madurez, riesgo, mapa de calor)
 ```
 
@@ -174,8 +184,11 @@ entregables correspondientes.
 | `Tipos_Control`, `Conceptos_Ciberseguridad`, `Dominios_Seguridad`, `Capacidades_Operativas` | Catálogos cerrados de atributos de la norma (+ 4 tablas puente N:M con `Controles`) |
 | `Controles` | Ficha del control: código, nombre, propósito, descripción, **peso 1–10 (CHECK)**, relación C/I/D (`ENUM nivel_relacion`), guía |
 | `Preguntas` | 1:N con `Controles`; `UNIQUE (control_id, orden)` |
+| `Escala_Madurez` | Catálogo cerrado de los 5 niveles COBIT (`nivel` 1–5 con `CHECK`, `nombre`) |
+| `Niveles_Madurez_Control` | Descriptor de cada nivel para cada control; PK `(control_id, nivel)`, `ON DELETE CASCADE` desde `Controles` |
+| `Madurez_Controles` | Nivel declarado por el evaluador: una fila por (cuestionario, control) — `UNIQUE`; FK a `Escala_Madurez` |
 | `Organizaciones`, `Evaluadores` | Usuarios; `correo UNIQUE`, `contrasena_hash` (bcrypt) |
-| `Cuestionarios_Control_Interno` | Auditoría: organización + evaluador + fecha |
+| `Cuestionarios_Control_Interno` | Cuestionario: organización + evaluador + fecha |
 | `Respuestas` | Una fila por (cuestionario, pregunta) — `UNIQUE`; 4 atributos `ENUM respuesta_pregunta`: `cumple`, `documentado`, `repetible`, `evidencia`; más `justificacion_no_aplica` (texto, obligatorio por `CHECK` cuando `cumple = 'N/A'` y `NULL` en cualquier otro caso) |
 
 Integridad clave: FKs en todas las relaciones; `ON DELETE CASCADE` solo de `Controles` hacia sus
@@ -194,19 +207,20 @@ dependientes de catálogo (`Preguntas`, tablas puente); las respuestas nunca se 
 ## 8. Metodologías implementadas
 
 - Instrumento de evaluación: `docs/Instrumento_Evaluacion.md`.
-- Nivel de madurez 0–5: `docs/Metodologia_Madurez.md` (tasas de atributos → índice continuo →
-  nivel con topes cualitativos). Implementada en `ReporteRepository::madurez()`
+- Nivel de madurez 1–5: `docs/Metodologia_Madurez.md`. El evaluador declara el nivel de cada control
+  escogiendo entre los cinco descriptores COBIT de ese control (`MadurezRepository`,
+  `PUT /cuestionarios/{id}/niveles-madurez/{controlId}`); la agregación por dominio y global es el
+  promedio ponderado por `Controles.peso`, en `ReporteRepository::madurez()`
   (`GET /cuestionarios/{id}/madurez`).
 - Exposición al riesgo C/I/D: `docs/Metodologia_Riesgo.md`
-  (`E(X) = Σ peso·r·(1−IM/5) / Σ peso·r`, con `r` = 1.0 Primario / 0.5 Secundario).
+  (`E(X) = Σ peso·r·(1−nivel/5) / Σ peso·r`, con `r` = 1.0 Primario / 0.5 Secundario).
   Implementada en `ReporteRepository::riesgo()` (`GET /cuestionarios/{id}/riesgo`).
 
-Ambas metodologías se calculan íntegramente a partir de columnas existentes
-(`Respuestas.cumple/documentado/repetible/evidencia`, `Controles.peso`, relación C/I/D): **no
-requirieron cambios de DDL**. El reporte ejecutivo (`/reportes/{cuestionarioId}` en el frontend)
-las visualiza con barras de madurez por control, semáforo de riesgo por dimensión, mapa de calor,
-ranking de controles por exposición y hallazgos, y es imprimible/exportable a PDF con el botón
-"Imprimir / PDF" (CSS `@media print`).
+Los controles sin nivel declarado quedan fuera de ambos cálculos y se reportan como pendientes. El
+reporte ejecutivo (`/reportes/{cuestionarioId}` en el frontend) visualiza las metodologías con
+barras de madurez por control, semáforo de riesgo por dimensión, mapa de calor, ranking de controles
+por exposición y hallazgos, y es imprimible/exportable a PDF con el botón "Imprimir / PDF"
+(CSS `@media print`).
 
 ## 9. Limitaciones conocidas y hoja de ruta
 
@@ -214,11 +228,11 @@ Detalle con DDL sugerido en `backend/docs/Gaps.md`. Resumen:
 
 | Pendiente | Estado |
 |---|---|
-| Flujo de responder cuestionario conectado al backend | ✅ Hecho (auditorías → controles → preguntas, guardado parcial por lotes) |
+| Flujo de responder cuestionario conectado al backend | ✅ Hecho (cuestionarios → controles → preguntas, guardado parcial por lotes) |
 | Endpoints de madurez y riesgo según las metodologías de `docs/` | ✅ Hecho (`/madurez`, `/riesgo`) |
 | Gráficos y reporte ejecutivo exportable | ✅ Hecho (`/reportes/{id}`, imprimible a PDF) |
 | Columna `estado` del cuestionario (en progreso / finalizado) | Bloqueado por DDL |
-| `area_evaluada` y `administrador_bd` en la auditoría | Bloqueado por DDL |
+| `area_evaluada` y `administrador_bd` en el cuestionario | Bloqueado por DDL |
 | Observaciones y evidencias en texto libre por respuesta | Bloqueado por DDL |
 | Soft-delete (`activo`) de normas/controles | Bloqueado por DDL |
 | Autorización por datos en el backend (hoy el control de acceso es solo del cliente) | Pendiente |

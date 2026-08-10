@@ -110,13 +110,13 @@ export default function EvaluadorDashboard() {
           enableRowActions
           renderRowActions={({ row }) => (
             <Box sx={{ display: 'flex', gap: 0.5 }}>
-              <Tooltip title="Continuar la auditoría">
+              <Tooltip title="Continuar el cuestionario">
                 <IconButton
                   component={RouterLink}
                   to={`/internal-control-questionnaire/${row.original.id}`}
                   size="small"
                   color="primary"
-                  aria-label="Continuar la auditoría"
+                  aria-label="Continuar el cuestionario"
                 >
                   <PlayArrowIcon fontSize="small" />
                 </IconButton>

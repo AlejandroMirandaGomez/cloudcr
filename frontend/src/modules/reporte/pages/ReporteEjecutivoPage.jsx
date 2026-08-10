@@ -139,7 +139,7 @@ export default function ReporteEjecutivoPage() {
         </Typography>
         <Stack direction="row" spacing={3} useFlexGap sx={{ mt: 1.5, flexWrap: 'wrap' }}>
           <Typography variant="body2"><b>Organización:</b> {cuestionario.organizacion}</Typography>
-          <Typography variant="body2"><b>Auditor:</b> {cuestionario.evaluador}</Typography>
+          <Typography variant="body2"><b>Evaluador:</b> {cuestionario.evaluador}</Typography>
           <Typography variant="body2"><b>Fecha:</b> {cuestionario.fecha}</Typography>
           <Typography variant="body2">
             <b>Avance:</b> {cuestionario.respuestas_registradas}/{cuestionario.preguntas_en_catalogo} preguntas
@@ -179,7 +179,7 @@ export default function ReporteEjecutivoPage() {
 
       <Seccion
         titulo="Nivel de madurez por control"
-        descripcion="Índice continuo 0–5 derivado de las tasas de cumplimiento, documentación, repetibilidad y evidencia."
+        descripcion="Nivel 1–5 declarado por el evaluador escogiendo, entre los cinco descriptores del control, el que refleja la situación de la organización."
       >
         <MadurezChart controles={madurez.controles} />
       </Seccion>
@@ -209,7 +209,7 @@ export default function ReporteEjecutivoPage() {
       {topExposicion.length > 0 && (
         <Seccion
           titulo="Controles con mayor exposición al riesgo"
-          descripcion="Prioridades de remediación: exposición = (peso / 10) × deficiencia de madurez."
+          descripcion="Prioridades de remediación: exposición = (peso / 10) × deficiencia, con deficiencia = 1 − nivel / 5."
         >
           <Paper variant="outlined" sx={{ borderRadius: 2, overflowX: 'auto' }}>
             <Table size="small">
@@ -229,7 +229,7 @@ export default function ReporteEjecutivoPage() {
                     <TableCell sx={{ fontWeight: 700 }}>{c.codigo}</TableCell>
                     <TableCell>{c.nombre}</TableCell>
                     <TableCell align="right">{c.peso}</TableCell>
-                    <TableCell align="right">{c.indice_madurez.toFixed(2)}</TableCell>
+                    <TableCell align="right">{c.nivel_madurez} / 5</TableCell>
                     <TableCell align="right">{Math.round(c.deficiencia * 100)}%</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>
                       {(c.exposicion * 100).toFixed(1)}%
@@ -268,7 +268,7 @@ export default function ReporteEjecutivoPage() {
       {noAplicables.length > 0 && (
         <Seccion
           titulo="Preguntas no aplicables"
-          descripcion="Excluidas del cálculo de cumplimiento, madurez y riesgo, con la justificación registrada durante la auditoría."
+          descripcion="Excluidas del cálculo de cumplimiento y del mapa de calor, con la justificación registrada durante el cuestionario."
         >
           <Paper variant="outlined" sx={{ borderRadius: 2 }}>
             <List dense disablePadding>
@@ -296,8 +296,8 @@ export default function ReporteEjecutivoPage() {
       <Divider sx={{ my: 3 }} />
       <Typography variant="caption" color="text.disabled">
         Generado por CloudCR — metodologías de madurez y riesgo documentadas en los entregables del
-        proyecto. Escala de madurez: 0 inexistente · 1 informal · 2 parcial · 3 documentado ·
-        4 supervisado con evidencias · 5 mejora continua. Riesgo: bajo &lt; 15% ≤ medio &lt; 40% ≤ alto.
+        proyecto. Escala de madurez (COBIT 4.1): 1 inicial/ad hoc · 2 repetible pero intuitivo ·
+        3 definido · 4 administrado y medible · 5 optimizado. Riesgo: bajo &lt; 15% ≤ medio &lt; 40% ≤ alto.
       </Typography>
     </Box>
   );

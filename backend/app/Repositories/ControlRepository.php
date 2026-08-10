@@ -56,7 +56,7 @@ final class ControlRepository extends BaseRepository
 
     public function buscarPorId(int $id): array
     {
-        $fila = $this->run($this->seleccion() . ' WHERE c.id = :id', ['id' => $id])->fetch();
+        $fila = $this->run($this->seleccion(true) . ' WHERE c.id = :id', ['id' => $id])->fetch();
 
         if ($fila === false) {
             throw HttpException::notFound('el control', $id);
@@ -126,10 +126,22 @@ final class ControlRepository extends BaseRepository
             ));
         }
 
+        $niveles = (int) $this->run(
+            'SELECT COUNT(*) FROM Madurez_Controles WHERE control_id = :id',
+            ['id' => $id]
+        )->fetchColumn();
+
+        if ($niveles > 0) {
+            throw HttpException::conflicto(sprintf(
+                'El control tiene %d nivel(es) de madurez declarados en cuestionarios y no puede eliminarse sin perder historial.',
+                $niveles
+            ));
+        }
+
         $this->run('DELETE FROM Controles WHERE id = :id', ['id' => $id]);
     }
 
-    private function seleccion(): string
+    private function seleccion(bool $conNivelesMadurez = false): string
     {
         $agregados = [];
         foreach (self::ATRIBUTOS as $clave => [$puente, $columna, $catalogo]) {
@@ -142,6 +154,16 @@ final class ControlRepository extends BaseRepository
                 $columna,
                 $clave
             );
+        }
+
+        if ($conNivelesMadurez) {
+            $agregados[] = "COALESCE((SELECT JSON_AGG(JSON_BUILD_OBJECT(
+                                              'nivel', nm.nivel,
+                                              'nombre', em.nombre,
+                                              'descripcion', nm.descripcion) ORDER BY nm.nivel)
+                                        FROM Niveles_Madurez_Control nm
+                                        JOIN Escala_Madurez em ON em.nivel = nm.nivel
+                                       WHERE nm.control_id = c.id), '[]') AS niveles_madurez";
         }
 
         return 'SELECT c.id,
@@ -327,6 +349,16 @@ final class ControlRepository extends BaseRepository
             },
             json_decode((string) $fila['preguntas'], true) ?: []
         );
+
+        if (isset($fila['niveles_madurez'])) {
+            $fila['niveles_madurez'] = array_map(
+                static function (array $n): array {
+                    $n['nivel'] = (int) $n['nivel'];
+                    return $n;
+                },
+                json_decode((string) $fila['niveles_madurez'], true) ?: []
+            );
+        }
 
         return $fila;
     }

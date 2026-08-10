@@ -41,8 +41,11 @@ psql -U postgres -d cloud_cr -f database/Modelo_Relacional.sql
 psql -U postgres -d cloud_cr -f database/Datos_Iniciales.sql
 ```
 
-El primero crea el esquema y los catalogos fijos de la norma; el segundo carga los controles
-seleccionados con sus preguntas.
+El primero crea el esquema y los catalogos fijos de la norma (incluida la escala de madurez); el
+segundo carga los controles seleccionados con sus preguntas y sus descriptores de madurez.
+
+Sobre una base creada con una version anterior del modelo hay que aplicar ademas las migraciones de
+`database/`: `Migracion_Justificacion_No_Aplica.sql` y `Migracion_Niveles_Madurez.sql`.
 
 El backend depende de estas restricciones `UNIQUE`; sin ellas no funciona correctamente:
 
@@ -137,14 +140,15 @@ este montado el proyecto.
   ISO/IEC 27002:2022 y sus preguntas; filtrable por norma, dominio, tipo, dimension y texto
 - Registro de respuestas Si / No / N/A **por pregunta**, con guardado parcial e idempotente
   y guardado por lotes transaccional
+- Nivel de madurez 1–5 declarado por control contra los descriptores COBIT del propio control,
+  con su agregacion ponderada por dominio y global
+- Exposicion al riesgo C/I/D a partir de la deficiencia de madurez, el peso y la relacion C/I/D
 - Reportes: resumen de cumplimiento, mapa de calor por dimension con desglose
   Primario / Secundario, hallazgos (preguntas en "No") e historial por organizacion
 
 **No implementado** (requiere cambios en el modelo de datos)
 
-- Nivel de madurez 0–5; solo se exponen los insumos `documentado`, `repetible` y `evidencia`
-- Exposicion al riesgo C/I/D: el `peso` ya existe, falta definir la formula
-- Area evaluada y Administrador de Bases de Datos por auditoria
+- Area evaluada y Administrador de Bases de Datos por cuestionario
 - Observaciones, comentarios y evidencias en texto
 - Estado del cuestionario (en progreso / finalizado)
 

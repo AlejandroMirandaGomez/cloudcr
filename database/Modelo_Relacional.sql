@@ -66,6 +66,21 @@ CREATE TABLE Preguntas (
     UNIQUE (control_id, orden)
 );
 
+CREATE TABLE Escala_Madurez (
+    nivel SMALLINT PRIMARY KEY,
+    nombre VARCHAR(40) NOT NULL UNIQUE,
+    CHECK (nivel BETWEEN 1 AND 5)
+);
+
+CREATE TABLE Niveles_Madurez_Control (
+    control_id INT NOT NULL,
+    nivel SMALLINT NOT NULL,
+    descripcion TEXT NOT NULL,
+    PRIMARY KEY (control_id, nivel),
+    FOREIGN KEY (control_id) REFERENCES Controles(id) ON DELETE CASCADE,
+    FOREIGN KEY (nivel) REFERENCES Escala_Madurez(nivel)
+);
+
 -- Tabla puente (N:M) entre Controles y Tipos_Control
 CREATE TABLE Controles_Tipos (
     control_id INT NOT NULL,
@@ -125,6 +140,17 @@ CREATE TABLE Cuestionarios_Control_Interno (
     FOREIGN KEY (evaluador_id) REFERENCES Evaluadores(id)
 );
 
+CREATE TABLE Madurez_Controles (
+    id SERIAL PRIMARY KEY,
+    cuestionario_id INT NOT NULL,
+    control_id INT NOT NULL,
+    nivel SMALLINT NOT NULL,
+    FOREIGN KEY (cuestionario_id) REFERENCES Cuestionarios_Control_Interno(id),
+    FOREIGN KEY (control_id) REFERENCES Controles(id),
+    FOREIGN KEY (nivel) REFERENCES Escala_Madurez(nivel),
+    UNIQUE (cuestionario_id, control_id)
+);
+
 CREATE TABLE Respuestas (
     id SERIAL PRIMARY KEY,
     cuestionario_id INT NOT NULL,
@@ -156,6 +182,13 @@ INSERT INTO Dominios_Norma (clausula, nombre) VALUES
     (6, 'Personas'),
     (7, 'Físicos'),
     (8, 'Tecnológicos');
+
+INSERT INTO Escala_Madurez (nivel, nombre) VALUES
+    (1, 'Inicial / Ad Hoc'),
+    (2, 'Repetible pero Intuitivo'),
+    (3, 'Definido'),
+    (4, 'Administrado y Medible'),
+    (5, 'Optimizado');
 
 INSERT INTO Tipos_Control (nombre) VALUES
     ('Preventivo'),

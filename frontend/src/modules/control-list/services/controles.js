@@ -31,6 +31,7 @@ function mapearControl(c) {
     capacidadesIds:         ids(c.capacidades),
     preguntas:              (c.preguntas ?? []).map((p) => p.texto),
     preguntasIds:           (c.preguntas ?? []).map((p) => p.id),
+    nivelesMadurez:         c.niveles_madurez ?? [],
   };
 }
 

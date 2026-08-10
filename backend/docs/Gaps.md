@@ -63,7 +63,7 @@ ALTER TABLE Controles ADD COLUMN activo BOOLEAN NOT NULL DEFAULT TRUE;
 
 ## Area evaluada y Administrador de Bases de Datos  🔴 bloqueada
 
-El enunciado los pide como datos minimos de cada auditoria.
+El enunciado los pide como datos minimos de cada cuestionario.
 `Cuestionarios_Control_Interno` solo guarda `organizacion_id`, `evaluador_id` y `fecha`.
 
 ```sql
@@ -90,13 +90,19 @@ ALTER TABLE Respuestas
 
 ## Nivel de madurez y exposicion al riesgo  ✅ resuelto
 
-La madurez se **deriva** de las respuestas (no se registra a mano), asi que no hizo falta DDL.
-Metodologias en `docs/Metodologia_Madurez.md` y `docs/Metodologia_Riesgo.md`; implementacion en
-`ReporteRepository::madurez()` y `::riesgo()`.
+La madurez la **declara el evaluador** por control, escogiendo entre los cinco descriptores COBIT de
+ese control. Requirio DDL: `Escala_Madurez` (catalogo de los 5 niveles),
+`Niveles_Madurez_Control` (descriptor por control y nivel) y `Madurez_Controles` (nivel declarado por
+cuestionario y control). Migracion para bases existentes en
+`database/Migracion_Niveles_Madurez.sql`. Metodologias en `docs/Metodologia_Madurez.md` y
+`docs/Metodologia_Riesgo.md`; implementacion en `MadurezRepository` y en
+`ReporteRepository::madurez()` / `::riesgo()`.
 
 | Endpoint | Aporta |
 |---|---|
-| `GET /cuestionarios/{id}/madurez` | IM continuo y nivel 0-5 por control, por dominio y global |
+| `PUT /cuestionarios/{id}/niveles-madurez/{controlId}` | declara el nivel 1-5 de un control |
+| `GET /cuestionarios/{id}/niveles-madurez` | niveles declarados en el cuestionario |
+| `GET /cuestionarios/{id}/madurez` | nivel 1-5 por control y promedio ponderado por dominio y global |
 | `GET /cuestionarios/{id}/riesgo` | exposicion C/I/D, indice general y ranking por control |
 | `GET /cuestionarios/{id}/resumen` | cumplimiento global y tasas de documentado / repetible / evidencia |
 | `GET /cuestionarios/{id}/mapa-calor` | cumplimiento por dimension con desglose Primario / Secundario |

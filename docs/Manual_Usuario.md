@@ -9,8 +9,8 @@
 
 CloudCR es una aplicación web que automatiza la evaluación de los controles de seguridad de la
 norma ISO/IEC 27002 aplicables a la administración de bases de datos. Permite a una empresa
-consultora ejecutar auditorías con un cuestionario estructurado, guardar avances parciales,
-calcular niveles de madurez y exposición al riesgo, y consultar reportes e indicadores.
+consultora ejecutar cuestionarios estructurados, guardar avances parciales, registrar el nivel de
+madurez de cada control, calcular la exposición al riesgo y consultar reportes e indicadores.
 
 ## 2. Requisitos
 
@@ -28,7 +28,7 @@ calcular niveles de madurez y exposición al riesgo, y consultar reportes e indi
 
 | Rol | Quién es | Qué puede hacer |
 |---|---|---|
-| **Evaluador** | Auditor de la consultora | Ver y editar el catálogo de controles, realizar cuestionarios de auditoría, ver su panel con estadísticas |
+| **Evaluador** | Evaluador de la consultora | Ver y editar el catálogo de controles, realizar cuestionarios de control interno, ver su panel con estadísticas |
 | **Organización** | Empresa u organización evaluada | Ver su historial de evaluaciones, mapa de calor, cumplimiento y hallazgos en su panel |
 | Visitante (sin sesión) | Cualquiera | Ver la página de inicio y consultar la lista de controles (solo lectura) |
 
@@ -67,7 +67,7 @@ El menú principal (botón ☰ de la barra superior) muestra las opciones según
 | Inicio | Todos | Página de presentación del sistema |
 | Mi Panel | Con sesión | Dashboard personalizado según el rol |
 | Editar perfil | Con sesión | Datos de la cuenta |
-| Cuestionario de Control Interno | Solo evaluador | Flujo de auditoría |
+| Cuestionario de Control Interno | Solo evaluador | Flujo de cuestionario |
 | Lista de Controles | Todos | Catálogo ISO/IEC 27002 |
 
 ## 6. Lista de Controles (`/control-list`)
@@ -83,55 +83,62 @@ Catálogo de los controles ISO/IEC 27002 cargados en el sistema.
   - **Editar** — visible **solo para evaluadores** con sesión iniciada. Permite modificar nombre,
     tipo, descripción y las propiedades de seguridad (C/I/D) del control.
 
-## 7. Realizar una auditoría (solo evaluadores)
+## 7. Realizar un cuestionario (solo evaluadores)
 
-### 7.1 Crear o continuar una auditoría
+### 7.1 Crear o continuar un cuestionario
 
-Menú lateral → **Cuestionario de Control Interno**. Se muestra la lista de sus auditorías con su
+Menú lateral → **Cuestionario de Control Interno**. Se muestra la lista de sus cuestionarios con su
 estado (Sin iniciar / En progreso / Completa) y barra de avance.
 
-- **Nueva auditoría:** botón *Nueva auditoría* → seleccione la organización y la fecha → *Crear y
-  evaluar*. La auditoría queda registrada de inmediato en el sistema.
-- **Continuar:** ícono ▶ de la fila. Retoma la auditoría exactamente donde quedó.
-- **Eliminar:** ícono de papelera; pide confirmación y borra la auditoría con todas sus
+- **Nuevo cuestionario:** botón *Nuevo cuestionario* → seleccione la organización y la fecha → *Crear y
+  evaluar*. El cuestionario queda registrado de inmediato en el sistema.
+- **Continuar:** ícono ▶ de la fila. Retoma el cuestionario exactamente donde quedó.
+- **Eliminar:** ícono de papelera; pide confirmación y borra el cuestionario con todas sus
   respuestas (irreversible).
 
 ### 7.2 Responder los controles
 
-Al abrir una auditoría se muestra el encabezado con organización, auditor, fecha y avance global,
-y la tabla de controles con el progreso de cada uno (ej. `2/4` preguntas).
+Al abrir un cuestionario se muestra el encabezado con organización, evaluador, fecha y avance global,
+y la tabla de controles con el nivel de madurez declarado y el progreso de cada uno (ej. `2/4`
+preguntas).
 
 1. Presione el ícono de **Responder preguntas** en la fila del control.
-2. Cada pregunta se califica en **cuatro aspectos**, cada uno con **Sí / No / N/A**:
+2. **Declare primero el nivel de madurez del control.** Es lo primero que aparece en la pantalla:
+   cinco opciones, de *Inicial / Ad Hoc* (1) a *Optimizado* (5). Al pasar el mouse sobre una opción
+   —o al seleccionarla— se despliega la descripción completa de ese nivel **para ese control en
+   particular**; escoja la que refleja la situación de la organización. Si cumple solo en parte la
+   descripción de un nivel, declare el nivel inferior.
+3. Cada pregunta se califica en **cuatro aspectos**, cada uno con **Sí / No / N/A**:
    - **Cumple** — ¿la práctica se aplica?
    - **Documentado** — ¿existe procedimiento escrito?
    - **Repetible** — ¿se ejecuta de forma consistente?
    - **Evidencia** — ¿hay registros que lo demuestran?
-3. Use **N/A** únicamente cuando la práctica no aplica al contexto de la organización (al marcar
+4. Use **N/A** únicamente cuando la práctica no aplica al contexto de la organización (al marcar
    N/A en *Cumple*, los demás aspectos se marcan N/A automáticamente).
-4. **Justificación obligatoria del N/A:** al marcar N/A aparece una caja de texto donde debe
+5. **Justificación obligatoria del N/A:** al marcar N/A aparece una caja de texto donde debe
    explicar por qué la práctica no aplica (mínimo 10 caracteres). Sin esa justificación el sistema
-   no deja guardar la respuesta, porque las preguntas N/A se excluyen del cálculo de cumplimiento,
-   madurez y riesgo. Si luego cambia la respuesta a Sí o No, la justificación se descarta sola.
-5. Presione **Guardar avance** para registrar las respuestas en el sistema. El contador indica
-   cuántos cambios están sin guardar. Puede **pausar la auditoría y continuarla otro día**: todo
-   lo guardado persiste en la base de datos.
-6. El botón **Ver detalle** muestra la ficha completa del control (propósito, guía de la norma)
+   no deja guardar la respuesta, porque las preguntas N/A se excluyen del cálculo de cumplimiento y
+   del mapa de calor. Si luego cambia la respuesta a Sí o No, la justificación se descarta sola.
+6. Presione **Guardar avance** para registrar el nivel de madurez y las respuestas en el sistema. El
+   contador indica cuántos cambios están sin guardar. Puede **pausar el cuestionario y continuarlo
+   otro día**: todo lo guardado persiste en la base de datos.
+7. El botón **Ver detalle** muestra la ficha completa del control (propósito, guía de la norma)
    como referencia durante la entrevista.
 
-> **Criterio del auditor:** ante duda entre Sí y No, responda **No**. El sistema está calibrado de
+> **Criterio del evaluador:** ante duda entre Sí y No, responda **No**. El sistema está calibrado de
 > forma conservadora: es preferible sobreestimar el riesgo que ocultarlo.
 
 ### 7.3 Ver el reporte ejecutivo
 
-Desde la pantalla de controles de la auditoría, botón **Ver reporte ejecutivo** (también
+Desde la pantalla de controles del cuestionario, botón **Ver reporte ejecutivo** (también
 disponible desde *Mi Panel*). El reporte muestra:
 
-- Indicadores principales: exposición al riesgo general con semáforo, madurez global 0–5,
-  cumplimiento y controles evaluados.
+- Indicadores principales: exposición al riesgo general con semáforo, madurez global 1–5,
+  cumplimiento y controles con nivel declarado.
 - **Exposición al riesgo por dimensión** (Confidencialidad / Integridad / Disponibilidad) con
   barras y nivel de riesgo (bajo / medio / alto).
-- **Nivel de madurez por control** en barras 0–5 con su nivel.
+- **Nivel de madurez por control** en barras 1–5 con el nivel declarado. Los controles a los que
+  todavía no se les declaró nivel se listan aparte y no entran en el cálculo.
 - **Mapa de calor** de cumplimiento por dimensión.
 - **Controles con mayor exposición** (prioridades de remediación) y **principales hallazgos**.
 - **Preguntas no aplicables** con la justificación registrada, para dejar constancia de qué quedó
@@ -147,7 +154,7 @@ El contenido depende del rol con el que inició sesión.
 ### 8.1 Panel del evaluador
 
 - **Estadísticas**: cuestionarios realizados, organizaciones evaluadas y cuestionarios del mes.
-- **Cuestionarios recientes**: tabla con sus últimas auditorías.
+- **Cuestionarios recientes**: tabla con sus últimos cuestionarios.
 - **Accesos rápidos** al cuestionario y al catálogo de controles.
 
 ### 8.2 Panel de la organización
@@ -165,13 +172,14 @@ El contenido depende del rol con el que inició sesión.
 | Indicador | Qué significa |
 |---|---|
 | **Cumplimiento** | Porcentaje de preguntas aplicables respondidas "Sí" en *cumple* |
-| **Nivel de madurez (0–5)** | Qué tan formalizado y gestionado está cada control; ver escala abajo |
+| **Nivel de madurez (1–5)** | Qué tan institucionalizado está cada control, declarado por el evaluador; ver escala abajo |
 | **Exposición al riesgo (C/I/D)** | Porcentaje de deficiencia ponderada de los controles que protegen cada propiedad |
 | **Semáforo** | Verde = sólido, amarillo = brechas por atender, rojo = acción inmediata |
 
-Escala de madurez: **0** inexistente · **1** informal · **2** parcial con documentación incompleta ·
-**3** documentado e implementado · **4** implementado, supervisado y con evidencias ·
-**5** medido y en mejora continua.
+Escala de madurez (COBIT 4.1): **1** inicial / ad hoc · **2** repetible pero intuitivo ·
+**3** definido · **4** administrado y medible · **5** optimizado. Cada control tiene su propia
+redacción de los cinco niveles, visible en la pantalla de respuesta al pasar el mouse por cada
+opción.
 
 ## 10. Mensajes de error frecuentes
 
@@ -179,7 +187,7 @@ Escala de madurez: **0** inexistente · **1** informal · **2** parcial con docu
 |---|---|---|
 | "Los datos enviados no son válidos" | Campo obligatorio vacío o formato incorrecto | Revise los campos marcados |
 | "…ya existe" (conflicto) | Nombre o correo duplicado | Use otro valor |
-| "No se puede eliminar…" | El registro tiene historial de auditorías asociado | El sistema protege el historial; no es un error |
+| "No se puede eliminar…" | El registro tiene historial de cuestionarios asociado | El sistema protege el historial; no es un error |
 | Pantalla de acceso denegado | Su rol no tiene permiso para esa página | Inicie sesión con el rol adecuado |
 
 ## 11. Soporte

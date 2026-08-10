@@ -18,7 +18,6 @@ function Campo({ label, children }) {
   );
 }
 
-/** Encabezado con los datos reales de la auditoria (cuestionario) en curso. */
 export default function AuditInfoHeader({ cuestionario }) {
   if (!cuestionario) return null;
 
@@ -43,8 +42,8 @@ export default function AuditInfoHeader({ cuestionario }) {
       }}
     >
       <Campo label="Organización">{organizacion}</Campo>
-      <Campo label="Auditor">{evaluador}</Campo>
-      <Campo label="Fecha de la auditoría">{fecha}</Campo>
+      <Campo label="Evaluador">{evaluador}</Campo>
+      <Campo label="Fecha del cuestionario">{fecha}</Campo>
       <Campo label="Avance">
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <LinearProgress

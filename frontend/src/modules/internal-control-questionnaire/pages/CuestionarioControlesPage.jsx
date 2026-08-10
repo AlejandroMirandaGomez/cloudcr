@@ -13,7 +13,7 @@ import AuditInfoHeader from '../components/audit-info-header/AuditInfoHeader.jsx
 import { getControles } from '../../control-list/services/controles.js';
 import { getCuestionario } from '../services/cuestionarios.js';
 
-const LISTA_AUDITORIAS = '/internal-control-questionnaire';
+const LISTA_CUESTIONARIOS = '/internal-control-questionnaire';
 
 function ProgresoChip({ respondidas, total }) {
   const color = respondidas >= total ? 'success' : respondidas > 0 ? 'warning' : 'default';
@@ -25,6 +25,17 @@ function ProgresoChip({ respondidas, total }) {
       variant="outlined"
       sx={{ width: 72, justifyContent: 'center' }}
     />
+  );
+}
+
+function MadurezChip({ madurez }) {
+  if (!madurez) {
+    return <Chip label="Sin definir" size="small" variant="outlined" />;
+  }
+  return (
+    <Tooltip title={madurez.nivel_descripcion ?? madurez.nivel_nombre}>
+      <Chip label={`Nivel ${madurez.nivel}`} size="small" color="primary" variant="outlined" />
+    </Tooltip>
   );
 }
 
@@ -54,12 +65,27 @@ export default function CuestionarioControlesPage() {
     return conteo;
   }, [cuestionario]);
 
+  const madurezPorControl = useMemo(() => {
+    const niveles = new Map();
+    for (const m of cuestionario?.niveles_madurez ?? []) {
+      niveles.set(m.control_id, m);
+    }
+    return niveles;
+  }, [cuestionario]);
+
   const columns = useMemo(
     () => [
       { accessorKey: 'codigo', header: 'Código', size: 90 },
       { accessorKey: 'nombre', header: 'Control', size: 260 },
       { accessorKey: 'dominioNorma', header: 'Dominio', size: 130 },
       { accessorKey: 'peso', header: 'Peso', size: 80 },
+      {
+        id: 'madurez',
+        header: 'Madurez',
+        accessorFn: (row) => madurezPorControl.get(row.id)?.nivel ?? 0,
+        Cell: ({ row }) => <MadurezChip madurez={madurezPorControl.get(row.original.id)} />,
+        size: 130,
+      },
       {
         id: 'progreso',
         header: 'Progreso',
@@ -73,7 +99,7 @@ export default function CuestionarioControlesPage() {
         size: 110,
       },
     ],
-    [respondidasPorControl],
+    [respondidasPorControl, madurezPorControl],
   );
 
   if (loading) {
@@ -89,10 +115,10 @@ export default function CuestionarioControlesPage() {
   if (!cuestionario) {
     return (
       <Box sx={{ p: 3, maxWidth: 960, mx: 'auto' }}>
-        <Button component={RouterLink} to={LISTA_AUDITORIAS} startIcon={<ArrowBackIcon />} variant="outlined" sx={{ mb: 3 }}>
-          Volver a auditorías
+        <Button component={RouterLink} to={LISTA_CUESTIONARIOS} startIcon={<ArrowBackIcon />} variant="outlined" sx={{ mb: 3 }}>
+          Volver a cuestionarios
         </Button>
-        <Alert severity="error">{error || `No existe la auditoría «${cuestionarioId}».`}</Alert>
+        <Alert severity="error">{error || `No existe el cuestionario «${cuestionarioId}».`}</Alert>
       </Box>
     );
   }
@@ -105,8 +131,8 @@ export default function CuestionarioControlesPage() {
         useFlexGap
         sx={{ mb: 2, flexWrap: 'wrap', justifyContent: 'space-between' }}
       >
-        <Button component={RouterLink} to={LISTA_AUDITORIAS} startIcon={<ArrowBackIcon />} variant="outlined">
-          Volver a auditorías
+        <Button component={RouterLink} to={LISTA_CUESTIONARIOS} startIcon={<ArrowBackIcon />} variant="outlined">
+          Volver a cuestionarios
         </Button>
         <Button
           component={RouterLink}
@@ -125,8 +151,8 @@ export default function CuestionarioControlesPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Seleccione un control para responder sus preguntas. El avance se guarda por pregunta:
-        puede pausar y continuar cuando lo necesite.
+        Seleccione un control para declarar su nivel de madurez y responder sus preguntas. El
+        avance se guarda por control: puede pausar y continuar cuando lo necesite.
       </Typography>
 
       <Table
@@ -139,7 +165,7 @@ export default function CuestionarioControlesPage() {
             <Tooltip title="Responder preguntas">
               <IconButton
                 component={RouterLink}
-                to={`${LISTA_AUDITORIAS}/${cuestionarioId}/control/${row.original.id}`}
+                to={`${LISTA_CUESTIONARIOS}/${cuestionarioId}/control/${row.original.id}`}
                 size="small"
                 color="primary"
                 aria-label="Responder preguntas"
@@ -153,7 +179,7 @@ export default function CuestionarioControlesPage() {
                 to={`/control-list/${row.original.id}`}
                 state={{
                   volverA: {
-                    to: `${LISTA_AUDITORIAS}/${cuestionarioId}`,
+                    to: `${LISTA_CUESTIONARIOS}/${cuestionarioId}`,
                     label: 'Volver al cuestionario',
                   },
                 }}

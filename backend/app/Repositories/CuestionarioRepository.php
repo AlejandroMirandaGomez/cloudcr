@@ -9,6 +9,10 @@ use CloudCR\Core\HttpException;
 /** HU-006, HU-016, HU-017. Tabla Cuestionarios_Control_Interno. */
 final class CuestionarioRepository extends BaseRepository
 {
+    public function __construct(private MadurezRepository $madurez = new MadurezRepository())
+    {
+    }
+
     /**
      * HU-016: historial de cuestionarios, filtrable por organizacion, evaluador y rango de fechas.
      *
@@ -111,6 +115,8 @@ final class CuestionarioRepository extends BaseRepository
     {
         $cuestionario = $this->buscarPorId($id);
 
+        $cuestionario['niveles_madurez'] = $this->madurez->listar($id);
+
         $cuestionario['respuestas'] = array_map(
             static function (array $f): array {
                 foreach (['id', 'pregunta_id', 'orden', 'control_id'] as $columna) {
@@ -206,6 +212,7 @@ final class CuestionarioRepository extends BaseRepository
 
         \CloudCR\Core\Database::transaction(function () use ($id): void {
             $this->run('DELETE FROM Respuestas WHERE cuestionario_id = :id', ['id' => $id]);
+            $this->run('DELETE FROM Madurez_Controles WHERE cuestionario_id = :id', ['id' => $id]);
             $this->run('DELETE FROM Cuestionarios_Control_Interno WHERE id = :id', ['id' => $id]);
         });
     }

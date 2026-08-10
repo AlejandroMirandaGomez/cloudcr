@@ -85,6 +85,16 @@ llamar "$BASE/cuestionarios/1/resumen"
 llamar "$BASE/cuestionarios/1/mapa-calor"
 llamar "$BASE/cuestionarios/1/hallazgos"
 
+paso "Declarar el nivel de madurez de un control: primera vez 201, repetida 200"
+llamar -X PUT "$BASE/cuestionarios/1/niveles-madurez/1" -H "$J" -d '{"nivel":3}'
+llamar -X PUT "$BASE/cuestionarios/1/niveles-madurez/1" -H "$J" -d '{"nivel":4}'
+
+paso "Nivel de madurez fuera de la escala (422)"
+llamar -X PUT "$BASE/cuestionarios/1/niveles-madurez/1" -H "$J" -d '{"nivel":0}'
+
+paso "Niveles de madurez declarados en el cuestionario 1"
+llamar "$BASE/cuestionarios/1/niveles-madurez"
+
 paso "Nivel de madurez y exposicion al riesgo"
 llamar "$BASE/cuestionarios/1/madurez"
 llamar "$BASE/cuestionarios/1/riesgo"

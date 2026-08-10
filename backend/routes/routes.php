@@ -7,6 +7,7 @@ use CloudCR\Controllers\CatalogoController;
 use CloudCR\Controllers\ControlController;
 use CloudCR\Controllers\CuestionarioController;
 use CloudCR\Controllers\EvaluadorController;
+use CloudCR\Controllers\MadurezController;
 use CloudCR\Controllers\NormaController;
 use CloudCR\Controllers\OrganizacionController;
 use CloudCR\Controllers\ReporteController;
@@ -24,6 +25,7 @@ $catalogos      = new CatalogoController();
 $controles      = new ControlController();
 $cuestionarios  = new CuestionarioController();
 $respuestas     = new RespuestaController();
+$madurez        = new MadurezController();
 $reportes       = new ReporteController();
 
 // ---------------------------------------------------------------- salud del API
@@ -87,6 +89,10 @@ $router->post('/cuestionarios/{id}/respuestas', [$respuestas, 'guardarLote']);
 $router->get('/cuestionarios/{id}/respuestas/{preguntaId}', [$respuestas, 'show']);
 $router->put('/cuestionarios/{id}/respuestas/{preguntaId}', [$respuestas, 'guardar']);
 $router->delete('/cuestionarios/{id}/respuestas/{preguntaId}', [$respuestas, 'destroy']);
+
+// ------------------------------- Nivel de madurez declarado por control
+$router->get('/cuestionarios/{id}/niveles-madurez', [$madurez, 'index']);
+$router->put('/cuestionarios/{id}/niveles-madurez/{controlId}', [$madurez, 'guardar']);
 
 // -------------------------------------------- HU-018 Reportes
 $router->get('/cuestionarios/{id}/resumen', [$reportes, 'resumen']);

@@ -136,15 +136,15 @@ export default function InternalControlQuestionnairePage() {
           Volver al inicio
         </Button>
         <Button onClick={abrirDialogo} startIcon={<AddIcon />} variant="contained">
-          Nueva auditoría
+          Nuevo cuestionario
         </Button>
       </Stack>
 
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-        Auditorías de control interno
+        Cuestionarios de control interno
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Cree una nueva auditoría o continúe una evaluación guardada parcialmente.
+        Cree un nuevo cuestionario o continúe una evaluación guardada parcialmente.
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
@@ -155,17 +155,17 @@ export default function InternalControlQuestionnairePage() {
         <Table
           columns={cols}
           data={cuestionarios}
-          storageKey="auditorias"
+          storageKey="cuestionarios"
           enableRowActions
           renderRowActions={({ row }) => (
             <Stack direction="row" spacing={0.5}>
-              <Tooltip title="Continuar la auditoría">
+              <Tooltip title="Continuar el cuestionario">
                 <IconButton
                   component={RouterLink}
                   to={`/internal-control-questionnaire/${row.original.id}`}
                   size="small"
                   color="primary"
-                  aria-label="Continuar la auditoría"
+                  aria-label="Continuar el cuestionario"
                 >
                   <PlayArrowIcon fontSize="small" />
                 </IconButton>
@@ -174,7 +174,7 @@ export default function InternalControlQuestionnairePage() {
                 <IconButton
                   size="small"
                   onClick={() => setPorEliminar(row.original)}
-                  aria-label="Eliminar la auditoría"
+                  aria-label="Eliminar el cuestionario"
                 >
                   <DeleteOutlineIcon fontSize="small" />
                 </IconButton>
@@ -187,9 +187,8 @@ export default function InternalControlQuestionnairePage() {
         />
       )}
 
-      {/* Dialogo: nueva auditoria */}
       <Dialog open={dialogAbierto} onClose={() => !creando && setDialogAbierto(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Nueva auditoría</DialogTitle>
+        <DialogTitle>Nuevo cuestionario</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             {errorDialogo && <Alert severity="error">{errorDialogo}</Alert>}
@@ -205,14 +204,14 @@ export default function InternalControlQuestionnairePage() {
               ))}
             </TextField>
             <TextField
-              label="Fecha de la auditoría"
+              label="Fecha del cuestionario"
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
               fullWidth
               InputLabelProps={{ shrink: true }}
             />
-            <TextField label="Auditor" value={session.nombre} fullWidth disabled />
+            <TextField label="Evaluador" value={session.nombre} fullWidth disabled />
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -225,10 +224,10 @@ export default function InternalControlQuestionnairePage() {
 
       {/* Dialogo: confirmar eliminacion */}
       <Dialog open={porEliminar !== null} onClose={() => !eliminando && setPorEliminar(null)} maxWidth="xs">
-        <DialogTitle>¿Eliminar la auditoría?</DialogTitle>
+        <DialogTitle>¿Eliminar el cuestionario?</DialogTitle>
         <DialogContent>
           <Typography variant="body2">
-            Se eliminará la auditoría N° {porEliminar?.id} de «{porEliminar?.organizacion}» y todas
+            Se eliminará el cuestionario N° {porEliminar?.id} de «{porEliminar?.organizacion}» y todas
             sus respuestas registradas. Esta acción no se puede deshacer.
           </Typography>
         </DialogContent>

@@ -45,7 +45,7 @@ final class ReporteRepository extends BaseRepository
             'no_aplica'         => (int) $fila['no_aplica'],
             'aplicables'        => $aplicables,
             'cumplimiento'      => $this->ratio((int) $fila['cumplidos'], $aplicables),
-            'madurez_insumos'   => [
+            'atributos'         => [
                 'tasa_documentado' => $this->ratio((int) $fila['documentados'], $total),
                 'tasa_repetible'   => $this->ratio((int) $fila['repetibles'], $total),
                 'tasa_evidencia'   => $this->ratio((int) $fila['con_evidencia'], $total),
@@ -232,10 +232,10 @@ final class ReporteRepository extends BaseRepository
     }
 
     /**
-     * Nivel de madurez 0-5 por control segun docs/Metodologia_Madurez.md:
-     *   tasas de 'Sí' por atributo sobre preguntas aplicables (cumple <> 'N/A'),
-     *   IM = 5 * (tC + tD + tR + tE) / 4, redondeo con topes cualitativos
-     *   (sin documentacion max 2, sin evidencia max 3, sin 100% en todo max 4).
+     * Nivel de madurez 1-5 por control segun docs/Metodologia_Madurez.md:
+     *   lo declara el evaluador al abrir cada control, escogiendo entre los cinco
+     *   descriptores COBIT del catalogo; el global y el de cada dominio son el
+     *   promedio de esos niveles ponderado por el peso del control.
      */
     public function madurez(int $cuestionarioId): array
     {
@@ -283,14 +283,7 @@ final class ReporteRepository extends BaseRepository
 
         return [
             'cuestionario_id' => $cuestionarioId,
-            'escala'          => [
-                ['nivel' => 0, 'descripcion' => 'El control no existe'],
-                ['nivel' => 1, 'descripcion' => 'Informal u ocasional, sin procedimientos definidos'],
-                ['nivel' => 2, 'descripcion' => 'Parcial, con algunas practicas documentadas'],
-                ['nivel' => 3, 'descripcion' => 'Documentado, definido e implementado'],
-                ['nivel' => 4, 'descripcion' => 'Implementado, supervisado y con evidencias'],
-                ['nivel' => 5, 'descripcion' => 'Medido, evaluado y en mejora continua'],
-            ],
+            'escala'          => $this->escalaMadurez(),
             'controles'       => $controles,
             'dominios'        => $porDominio,
             'global'          => [
@@ -302,7 +295,7 @@ final class ReporteRepository extends BaseRepository
 
     /**
      * Exposicion al riesgo C/I/D segun docs/Metodologia_Riesgo.md:
-     *   deficiencia d = 1 - IM/5; relevancia Primario 1.0 / Secundario 0.5 / NULL 0;
+     *   deficiencia d = 1 - nivel/5; relevancia Primario 1.0 / Secundario 0.5 / NULL 0;
      *   E(X) = sum(peso * r * d) / sum(peso * r); ER(control) = (peso/10) * d.
      */
     public function riesgo(int $cuestionarioId): array
@@ -388,7 +381,19 @@ final class ReporteRepository extends BaseRepository
         ];
     }
 
-    /** @return list<array<string,mixed>> tasas, IM y nivel por control */
+    /** @return list<array{nivel:int,nombre:string}> */
+    private function escalaMadurez(): array
+    {
+        return array_map(
+            static function (array $f): array {
+                $f['nivel'] = (int) $f['nivel'];
+                return $f;
+            },
+            $this->run('SELECT nivel, nombre FROM Escala_Madurez ORDER BY nivel')->fetchAll()
+        );
+    }
+
+    /** @return list<array<string,mixed>> nivel declarado y tasas de respuesta por control */
     private function madurezPorControl(int $cuestionarioId): array
     {
         $this->assertExists('Cuestionarios_Control_Interno', $cuestionarioId, 'el cuestionario');
@@ -403,6 +408,8 @@ final class ReporteRepository extends BaseRepository
                     ct.disponibilidad,
                     dn.nombre AS dominio_norma,
                     dn.clausula,
+                    m.nivel      AS nivel_declarado,
+                    em.nombre    AS nivel_nombre,
                     COUNT(p.id)  AS preguntas,
                     COUNT(r.id)  AS respondidas,
                     COUNT(r.id) FILTER (WHERE r.cumple <> 'N/A') AS aplicables,
@@ -414,9 +421,11 @@ final class ReporteRepository extends BaseRepository
                JOIN Dominios_Norma dn ON dn.id = ct.dominio_norma_id
                LEFT JOIN Preguntas p ON p.control_id = ct.id
                LEFT JOIN Respuestas r ON r.pregunta_id = p.id AND r.cuestionario_id = :id
+               LEFT JOIN Madurez_Controles m ON m.control_id = ct.id AND m.cuestionario_id = :id
+               LEFT JOIN Escala_Madurez em ON em.nivel = m.nivel
               GROUP BY ct.id, ct.codigo, ct.nombre, ct.peso,
                        ct.confidencialidad, ct.integridad, ct.disponibilidad,
-                       dn.nombre, dn.clausula
+                       dn.nombre, dn.clausula, m.nivel, em.nombre
               ORDER BY LENGTH(ct.codigo), ct.codigo",
             ['id' => $cuestionarioId]
         )->fetchAll();
@@ -424,37 +433,17 @@ final class ReporteRepository extends BaseRepository
         return array_map(static function (array $f): array {
             $aplicables = (int) $f['aplicables'];
 
-            $tasas          = null;
-            $indice         = null;
-            $nivel          = null;
+            $tasas = null;
             if ($aplicables > 0) {
-                $tC = (int) $f['cumple_si'] / $aplicables;
-                $tD = (int) $f['documentado_si'] / $aplicables;
-                $tR = (int) $f['repetible_si'] / $aplicables;
-                $tE = (int) $f['evidencia_si'] / $aplicables;
-
-                $indice = 5 * ($tC + $tD + $tR + $tE) / 4;
-                $nivel  = (int) round($indice);
-
-                // topes cualitativos de la escala del enunciado
-                if ($tD <= 0.0) {
-                    $nivel = min($nivel, 2);
-                }
-                if ($tE <= 0.0) {
-                    $nivel = min($nivel, 3);
-                }
-                if ($tC < 1.0 || $tD < 1.0 || $tR < 1.0 || $tE < 1.0) {
-                    $nivel = min($nivel, 4);
-                }
-
-                $indice = round($indice, 2);
-                $tasas  = [
-                    'cumple'      => round($tC, 4),
-                    'documentado' => round($tD, 4),
-                    'repetible'   => round($tR, 4),
-                    'evidencia'   => round($tE, 4),
+                $tasas = [
+                    'cumple'      => round((int) $f['cumple_si'] / $aplicables, 4),
+                    'documentado' => round((int) $f['documentado_si'] / $aplicables, 4),
+                    'repetible'   => round((int) $f['repetible_si'] / $aplicables, 4),
+                    'evidencia'   => round((int) $f['evidencia_si'] / $aplicables, 4),
                 ];
             }
+
+            $nivel = $f['nivel_declarado'] === null ? null : (int) $f['nivel_declarado'];
 
             return [
                 'control_id'       => (int) $f['control_id'],
@@ -470,8 +459,9 @@ final class ReporteRepository extends BaseRepository
                 'respondidas'      => (int) $f['respondidas'],
                 'aplicables'       => $aplicables,
                 'tasas'            => $tasas,
-                'indice_madurez'   => $indice,
+                'indice_madurez'   => $nivel === null ? null : (float) $nivel,
                 'nivel_madurez'    => $nivel,
+                'nivel_nombre'     => $f['nivel_nombre'],
             ];
         }, $filas);
     }

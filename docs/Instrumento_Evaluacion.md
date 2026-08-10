@@ -7,13 +7,14 @@
 
 ## 1. Propósito del instrumento
 
-El instrumento de evaluación es el cuestionario estructurado que el evaluador (auditor) aplica a una
+El instrumento de evaluación es el cuestionario estructurado que el evaluador aplica a una
 organización para determinar el grado de implementación de los controles de seguridad de la norma
 ISO/IEC 27002:2022 aplicables a la administración de bases de datos.
 
 Sus resultados alimentan directamente:
 
-1. El **nivel de madurez 0–5** de cada control (ver `Metodologia_Madurez.md`).
+1. El **nivel de madurez 1–5** de cada control, declarado por el evaluador contra los descriptores
+   COBIT del propio control (ver `Metodologia_Madurez.md`).
 2. La **exposición al riesgo** de Confidencialidad, Integridad y Disponibilidad
    (ver `Metodologia_Riesgo.md`).
 3. Los reportes e indicadores del sistema (resumen, mapa de calor, hallazgos, historial).
@@ -28,11 +29,13 @@ control se desarrolla en el documento *Justificación de los controles seleccion
 
 ## 3. Estructura del instrumento
 
-El instrumento tiene tres niveles jerárquicos, reflejados uno a uno en el modelo de datos
+Cada control se evalúa en dos ramas —el nivel de madurez que se declara para el control completo y
+las preguntas que se responden una por una—, reflejadas en el modelo de datos
 (`database/Modelo_Relacional.sql`):
 
 ```
-Control (10)  →  Pregunta (43)  →  Respuesta (4 atributos: Sí / No / N/A)
+Control (10)  →  Nivel de madurez declarado (1 de 5 descriptores)
+              →  Pregunta (43)  →  Respuesta (4 atributos: Sí / No / N/A)
 ```
 
 ### 3.1 Nivel 1 — Ficha del control
@@ -57,11 +60,11 @@ Cada control se transforma en **una o varias preguntas** (43 en total, entre 4 y
 Las preguntas se derivaron de la **guía de implementación** oficial del control en la norma,
 siguiendo estos criterios de redacción:
 
-- **Observables y verificables:** cada pregunta describe una práctica que el auditor puede
+- **Observables y verificables:** cada pregunta describe una práctica que el evaluador puede
   constatar mediante entrevista, demostración o revisión documental, no una opinión.
 - **Agrupación de prácticas afines:** cada pregunta consolida un conjunto coherente de prácticas
   de la guía (ej. "identidades privilegiadas propias + no compartidas + MFA" en una sola pregunta),
-  para mantener el cuestionario aplicable en una sesión de auditoría razonable.
+  para mantener el cuestionario aplicable en una sesión de evaluación razonable.
 - **Cobertura completa del control:** el conjunto de preguntas de un control cubre todas las
   prácticas esenciales de su guía de implementación.
 - **Contextualizadas a bases de datos:** las preguntas mencionan explícitamente gestores de bases
@@ -79,19 +82,19 @@ independientes**, cada uno con valores `Sí` / `No` / `N/A`:
 | `repetible` | ¿Se ejecuta de forma consistente y sistemática, no ad hoc? | Consistencia del proceso |
 | `evidencia` | ¿Existen registros o artefactos que demuestran su ejecución? | Verificabilidad / supervisión |
 
-**Justificación del diseño de cuatro atributos:** un solo Sí/No por pregunta obligaría al auditor a
-un juicio binario que pierde la información necesaria para distinguir niveles de madurez. Los cuatro
-atributos corresponden a las dimensiones que separan los niveles de la escala 0–5 del enunciado
-(existencia → informalidad → documentación → consistencia → evidencia/supervisión), de modo que el
-nivel de madurez puede **calcularse** a partir de datos observados en vez de asignarse
-subjetivamente. Ver `Metodologia_Madurez.md`, sección 3.
+**Justificación del diseño de cuatro atributos:** un solo Sí/No por pregunta obligaría al evaluador a
+un juicio binario que pierde la información que sostiene el diagnóstico. Los cuatro atributos
+recorren las dimensiones que la escala de madurez distingue (existencia → documentación →
+consistencia → evidencia verificable), de modo que el cumplimiento medido sirve de **contraste
+observable** del nivel de madurez que el evaluador declara para el control: una divergencia grande
+entre ambos es en sí misma un hallazgo. Ver `Metodologia_Madurez.md`, sección 4.
 
 **Uso de `N/A`:** se responde `N/A` en `cumple` cuando la práctica no aplica al contexto de la
 organización (ej. no usa proveedores externos de nube). Las preguntas con `cumple = N/A` se excluyen
-de todos los denominadores de cálculo; no premian ni castigan.
+de los denominadores de cumplimiento y del mapa de calor; no premian ni castigan.
 
 **Justificación obligatoria del `N/A`.** Como el `N/A` retira la pregunta del cálculo, es la única
-respuesta que puede usarse para inflar artificialmente el resultado de una auditoría. Por eso el
+respuesta que puede usarse para inflar artificialmente el resultado de un cuestionario. Por eso el
 instrumento exige registrar el campo **`justificacion_no_aplica`** (10–500 caracteres) explicando
 por qué la práctica no es aplicable a la organización. La regla se aplica en tres capas: el
 formulario muestra el campo y bloquea el guardado, el API responde 422 si falta, y la tabla
@@ -120,27 +123,41 @@ participa en el cálculo de esa dimensión.)*
 El texto completo de las 43 preguntas está en `database/Datos_Iniciales.sql` y es consultable en la
 aplicación (`GET /controles`, pantalla *Cuestionario de control interno*).
 
+### 4.1 Descriptores de madurez del control
+
+Cada uno de los diez controles tiene además **cinco descriptores de madurez** (uno por nivel),
+derivados del modelo de madurez COBIT 4.1 del objetivo de control equivalente. Se cargan en la tabla
+`Niveles_Madurez_Control` con `database/Datos_Iniciales.sql` y viajan en el detalle del control
+(`GET /controles/{id}`, campo `niveles_madurez`). El mapeo control ↔ objetivo COBIT está en
+`Metodologia_Madurez.md`, sección 3.
+
 ## 5. Procedimiento de aplicación
 
-1. **Creación de la auditoría.** El evaluador crea un cuestionario
+1. **Creación del cuestionario.** El evaluador crea un cuestionario
    (`POST /cuestionarios`) indicando organización, evaluador y fecha.
-2. **Sesión de auditoría.** Mediante entrevista con el DBA y revisión documental, el evaluador
+2. **Declaración del nivel de madurez.** Al abrir cada control, y antes de responder sus preguntas,
+   el evaluador escoge cuál de los cinco descriptores de ese control describe a la organización
+   (`PUT /cuestionarios/{id}/niveles-madurez/{controlId}`, idempotente).
+3. **Sesión de evaluación.** Mediante entrevista con el DBA y revisión documental, el evaluador
    responde cada pregunta calificando los cuatro atributos.
-3. **Guardado parcial.** Las respuestas se guardan pregunta por pregunta
+4. **Guardado parcial.** Las respuestas se guardan pregunta por pregunta
    (`PUT /cuestionarios/{id}/respuestas/{preguntaId}`, operación idempotente tipo *upsert*) o por
    lotes transaccionales (`POST /cuestionarios/{id}/respuestas`). Esto permite **pausar y retomar**
-   la auditoría, requisito explícito del enunciado. El endpoint
+   el cuestionario, requisito explícito del enunciado. El endpoint
    `GET /cuestionarios/{id}/respuestas/pendientes` lista lo que falta por responder.
-4. **Cierre y cálculo.** Con las respuestas registradas, el sistema calcula automáticamente
-   cumplimiento, madurez por control, exposición al riesgo por dimensión e indicadores
-   (`/resumen`, `/mapa-calor`, `/hallazgos`, `/historial`).
+5. **Cierre y cálculo.** Con los niveles declarados y las respuestas registradas, el sistema calcula
+   automáticamente cumplimiento, madurez agregada, exposición al riesgo por dimensión e indicadores
+   (`/resumen`, `/madurez`, `/riesgo`, `/mapa-calor`, `/hallazgos`, `/historial`).
 
-## 6. Reglas de calificación para el auditor
+## 6. Reglas de calificación para el evaluador
 
-Para garantizar consistencia entre auditores, se fijan estos criterios:
+Para garantizar consistencia entre evaluadores, se fijan estos criterios:
 
+- El **nivel de madurez** se declara escogiendo el descriptor que la organización cumple **por
+  completo**; si cumple parcialmente el nivel superior, se declara el inferior (mismo criterio
+  conservador que rige los atributos).
 - `cumple = Sí` exige que la práctica se aplique en los sistemas de bases de datos **en el momento
-  de la auditoría**, no que esté planificada.
+  del cuestionario**, no que esté planificada.
 - `documentado = Sí` exige documento formal (política, procedimiento, instructivo) vigente y
   accesible; borradores o conocimiento tribal cuentan como `No`.
 - `repetible = Sí` exige que la práctica se ejecute igual ante cada ocurrencia (calendario, proceso
@@ -155,8 +172,8 @@ Para garantizar consistencia entre auditores, se fijan estos criterios:
 
 | Componente | Cómo consume el instrumento |
 |---|---|
-| Nivel de madurez | Tasas de `Sí` de los 4 atributos por control → índice 0–5 (`Metodologia_Madurez.md`) |
-| Exposición al riesgo | Madurez × peso × relación C/I/D (`Metodologia_Riesgo.md`) |
+| Nivel de madurez | Nivel 1–5 declarado por control; agregado por dominio y global ponderando por peso (`Metodologia_Madurez.md`) |
+| Exposición al riesgo | Deficiencia (1 − nivel/5) × peso × relación C/I/D (`Metodologia_Riesgo.md`) |
 | Mapa de calor | Cumplimiento por dimensión, desglosado Primario/Secundario |
 | Hallazgos | Preguntas con `cumple = No`, ordenadas por peso del control |
 | Historial | Serie de cumplimiento por organización a lo largo del tiempo |
