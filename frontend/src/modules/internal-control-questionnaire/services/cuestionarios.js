@@ -35,6 +35,12 @@ export const guardarLote = (cuestionarioId, respuestas) =>
 export const getRespuestasPendientes = (cuestionarioId) =>
   api.get(`/cuestionarios/${cuestionarioId}/respuestas/pendientes`);
 
+export const getNivelesMadurez = (cuestionarioId) =>
+  api.get(`/cuestionarios/${cuestionarioId}/niveles-madurez`);
+
+export const guardarNivelMadurez = (cuestionarioId, controlId, nivel) =>
+  api.put(`/cuestionarios/${cuestionarioId}/niveles-madurez/${controlId}`, { nivel });
+
 export const getResumen   = (id) => api.get(`/cuestionarios/${id}/resumen`);
 export const getMapaCalor = (id) => api.get(`/cuestionarios/${id}/mapa-calor`);
 export const getHallazgos = (id) => api.get(`/cuestionarios/${id}/hallazgos`);

@@ -7,11 +7,12 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import ControlQuestionnaire, { MIN_JUSTIFICACION } from '../components/control-questionnaire/ControlQuestionnaire.jsx';
+import MaturityLevelSelector from '../components/maturity-level/MaturityLevelSelector.jsx';
 import { PreguntasSkeleton } from '../../../common/components/loading/Skeletons.jsx';
 import { getControl } from '../../control-list/services/controles.js';
-import { getCuestionario, guardarLote } from '../services/cuestionarios.js';
+import { getCuestionario, guardarLote, guardarNivelMadurez } from '../services/cuestionarios.js';
 
-const LISTA_AUDITORIAS = '/internal-control-questionnaire';
+const LISTA_CUESTIONARIOS = '/internal-control-questionnaire';
 const respuestaNueva = (valor) => ({ documentado: valor, repetible: valor, evidencia: valor });
 
 export default function ControlQuestionnairePage() {
@@ -20,6 +21,8 @@ export default function ControlQuestionnairePage() {
   const [control, setControl] = useState(null);
   const [respuestas, setRespuestas] = useState({});
   const [dirty, setDirty] = useState(new Set());
+  const [nivelMadurez, setNivelMadurez] = useState(null);
+  const [nivelGuardado, setNivelGuardado] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -43,6 +46,10 @@ export default function ControlQuestionnairePage() {
         }
         setRespuestas(iniciales);
         setDirty(new Set());
+
+        const declarado = (cuest.niveles_madurez ?? []).find((m) => m.control_id === ctrl.id);
+        setNivelMadurez(declarado?.nivel ?? null);
+        setNivelGuardado(declarado?.nivel ?? null);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -83,10 +90,17 @@ export default function ControlQuestionnairePage() {
     setDirty((prev) => new Set(prev).add(preguntaId));
   };
 
+  const nivelSinGuardar = nivelMadurez != null && nivelMadurez !== nivelGuardado;
+
   const guardar = async () => {
     setGuardando(true);
     setError('');
     try {
+      if (nivelSinGuardar) {
+        await guardarNivelMadurez(Number(cuestionarioId), control.id, nivelMadurez);
+        setNivelGuardado(nivelMadurez);
+      }
+
       const filas = [...dirty]
         .filter((preguntaId) => respuestas[preguntaId]?.cumple != null)
         .map((preguntaId) => {
@@ -111,7 +125,7 @@ export default function ControlQuestionnairePage() {
   };
 
   const respondidas = preguntas.filter((p) => respuestas[p.id]?.cumple != null).length;
-  const backTo = `${LISTA_AUDITORIAS}/${cuestionarioId}`;
+  const backTo = `${LISTA_CUESTIONARIOS}/${cuestionarioId}`;
 
   // Un 'N/A' sin justificar no se puede guardar: lo rechazan el API y la base.
   const sinJustificar = [...dirty].filter((preguntaId) => {
@@ -120,12 +134,15 @@ export default function ControlQuestionnairePage() {
       && (r.justificacion_no_aplica ?? '').trim().length < MIN_JUSTIFICACION;
   }).length;
 
+  const cambiosSinGuardar = dirty.size + (nivelSinGuardar ? 1 : 0);
+
   if (loading) {
     return (
       <Box sx={{ p: 3, maxWidth: 960, mx: 'auto' }}>
         <Skeleton variant="rounded" width={200} height={36} sx={{ mb: 3 }} />
         <Skeleton variant="text" width="50%" height={40} />
         <Skeleton variant="text" width="35%" sx={{ mb: 3 }} />
+        <Skeleton variant="rounded" height={280} sx={{ mb: 3 }} />
         <PreguntasSkeleton cantidad={4} />
       </Box>
     );
@@ -188,6 +205,16 @@ export default function ControlQuestionnairePage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
+      <MaturityLevelSelector
+        niveles={control.nivelesMadurez}
+        valor={nivelMadurez}
+        onChange={setNivelMadurez}
+      />
+
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, mt: 3, mb: 1.5 }}>
+        Preguntas del control
+      </Typography>
+
       <ControlQuestionnaire preguntas={preguntas} respuestas={respuestas} onChange={onChange} />
 
       <Stack
@@ -200,7 +227,7 @@ export default function ControlQuestionnairePage() {
           onClick={guardar}
           variant="contained"
           startIcon={<SaveIcon />}
-          disabled={dirty.size === 0 || guardando || sinJustificar > 0}
+          disabled={cambiosSinGuardar === 0 || guardando || sinJustificar > 0}
         >
           {guardando ? 'Guardando…' : 'Guardar avance'}
         </Button>
@@ -210,9 +237,10 @@ export default function ControlQuestionnairePage() {
               ? 'Falta justificar 1 pregunta marcada como «No aplica».'
               : `Faltan justificar ${sinJustificar} preguntas marcadas como «No aplica».`}
           </Typography>
-        ) : dirty.size > 0 ? (
+        ) : cambiosSinGuardar > 0 ? (
           <Typography variant="body2" color="warning.main">
-            {dirty.size} {dirty.size === 1 ? 'cambio sin guardar' : 'cambios sin guardar'}
+            {cambiosSinGuardar}{' '}
+            {cambiosSinGuardar === 1 ? 'cambio sin guardar' : 'cambios sin guardar'}
           </Typography>
         ) : null}
       </Stack>
