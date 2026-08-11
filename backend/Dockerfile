@@ -11,4 +11,4 @@ COPY . .
 
 RUN composer install --no-dev --optimize-autoloader
 
-CMD ["sh", "-c", "php -S 0.0.0.0:${PORT:-8000} -t public"]
+CMD ["sh", "-c", "php scripts/migrate.php && php -S 0.0.0.0:${PORT:-8000} -t public"]

@@ -30,10 +30,11 @@ final class Database
 
         $cfg = Config::db();
         $dsn = sprintf(
-            'pgsql:host=%s;port=%d;dbname=%s;options=--client_encoding=UTF8',
+            'pgsql:host=%s;port=%d;dbname=%s;sslmode=%s;options=--client_encoding=UTF8',
             $cfg['host'],
             $cfg['port'],
-            $cfg['name']
+            $cfg['name'],
+            $cfg['sslmode']
         );
 
         try {

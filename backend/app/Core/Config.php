@@ -20,6 +20,7 @@ final class Config
         'DB_NAME'   => 'cloud_cr',
         'DB_USER'   => 'postgres',
         'DB_PASS'   => 'postgres',
+        'DB_SSLMODE' => 'prefer',
         'APP_DEBUG' => 'true',
         'CORS_ORIGIN' => '*',
     ];
@@ -67,7 +68,7 @@ final class Config
         return in_array(strtolower(self::get('APP_DEBUG')), ['1', 'true', 'yes'], true);
     }
 
-    /** @return array{host:string,port:int,name:string,user:string,pass:string} */
+    /** @return array{host:string,port:int,name:string,user:string,pass:string,sslmode:string} */
     public static function db(): array
     {
         return [
@@ -76,6 +77,7 @@ final class Config
             'name' => self::get('DB_NAME'),
             'user' => self::get('DB_USER'),
             'pass' => self::get('DB_PASS'),
+            'sslmode' => self::get('DB_SSLMODE', 'prefer'),
         ];
     }
 }
