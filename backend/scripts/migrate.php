@@ -8,6 +8,7 @@ declare(strict_types=1);
 // no se vuelve a ejecutar.
 //
 // Uso manual: php backend/scripts/migrate.php
+// Prueba de disparo automatico del workflow de deploy (paths: backend/**).
 
 require __DIR__ . '/../vendor/autoload.php';
 
