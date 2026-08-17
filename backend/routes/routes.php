@@ -8,6 +8,7 @@ use CloudCR\Controllers\ControlController;
 use CloudCR\Controllers\CuestionarioController;
 use CloudCR\Controllers\EvaluadorController;
 use CloudCR\Controllers\MadurezController;
+use CloudCR\Controllers\MonitorController;
 use CloudCR\Controllers\NormaController;
 use CloudCR\Controllers\OrganizacionController;
 use CloudCR\Controllers\ReporteController;
@@ -27,6 +28,7 @@ $cuestionarios  = new CuestionarioController();
 $respuestas     = new RespuestaController();
 $madurez        = new MadurezController();
 $reportes       = new ReporteController();
+$monitor        = new MonitorController();
 
 // ---------------------------------------------------------------- salud del API
 $router->get('/', static function (): void {
@@ -101,5 +103,10 @@ $router->get('/cuestionarios/{id}/hallazgos', [$reportes, 'hallazgos']);
 $router->get('/cuestionarios/{id}/no-aplicables', [$reportes, 'noAplicables']);
 $router->get('/cuestionarios/{id}/madurez', [$reportes, 'madurez']);
 $router->get('/cuestionarios/{id}/riesgo', [$reportes, 'riesgo']);
+
+// ---------------------- Fase 2 - Monitor de Salud (datos simulados por ahora)
+$router->get('/monitor/indice', [$monitor, 'indice']);
+$router->get('/monitor/alertas', [$monitor, 'alertas']);
+$router->get('/monitor/historico', [$monitor, 'historico']);
 
 return $router;

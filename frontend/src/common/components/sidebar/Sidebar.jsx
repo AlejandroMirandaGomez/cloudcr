@@ -12,6 +12,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SecurityIcon from '@mui/icons-material/Security';
+import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -22,6 +23,7 @@ const DRAWER_WIDTH = 320;
 const NAV_ITEMS = [
   { label: 'Inicio', icon: <HomeIcon />, path: '/', show: () => true },
   { label: 'Mi Panel', icon: <DashboardIcon />, path: '/panel', show: (session) => !!session },
+  { label: 'Monitor de Salud', icon: <MonitorHeartIcon />, path: '/monitor', show: () => true },
   {
     label: 'Evaluación del riesgo',
     icon: <SecurityIcon />,
