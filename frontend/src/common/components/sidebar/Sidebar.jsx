@@ -23,7 +23,12 @@ const DRAWER_WIDTH = 320;
 const NAV_ITEMS = [
   { label: 'Inicio', icon: <HomeIcon />, path: '/', show: () => true },
   { label: 'Mi Panel', icon: <DashboardIcon />, path: '/panel', show: (session) => !!session },
-  { label: 'Monitor de Salud', icon: <MonitorHeartIcon />, path: '/monitor', show: () => true },
+  {
+    label: 'Monitor de Salud',
+    icon: <MonitorHeartIcon />,
+    path: '/monitor',
+    show: (session) => session?.rol === 'evaluador',
+  },
   {
     label: 'Evaluación del riesgo',
     icon: <SecurityIcon />,

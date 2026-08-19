@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Alert, Box, Typography } from '@mui/material';
+import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Alert, Box, Button, Typography } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
 import StorageIcon from '@mui/icons-material/Storage';
@@ -15,8 +17,12 @@ import { getIndiceSalud, getAlertasSalud, getHistoricoSalud } from '../services/
  * front + back con datos simulados (ver claude.md): no toca PostgreSQL ni
  * una conexion Oracle real, solo maqueta el ISBD = Wp*IP + Wm*IM + Wa*IA
  * propuesto por el documento del profesor para poder mostrarlo al equipo.
+ * Recibe baseDatosId desde /monitor/:baseDatosId (elegido en
+ * MonitorSelectorPage) para identificar cual base se esta mostrando; los
+ * valores simulados de componentes/ISBD aun no cambian por base.
  */
 export default function MonitorPage() {
+  const { baseDatosId } = useParams();
   const [indice, setIndice] = useState(null);
   const [alertas, setAlertas] = useState([]);
   const [historico, setHistorico] = useState([]);
@@ -25,8 +31,9 @@ export default function MonitorPage() {
 
   useEffect(() => {
     let activo = true;
+    setLoading(true);
 
-    Promise.all([getIndiceSalud(), getAlertasSalud(), getHistoricoSalud()])
+    Promise.all([getIndiceSalud(baseDatosId), getAlertasSalud(), getHistoricoSalud()])
       .then(([i, a, h]) => {
         if (!activo) return;
         setIndice(i);
@@ -39,15 +46,21 @@ export default function MonitorPage() {
     return () => {
       activo = false;
     };
-  }, []);
+  }, [baseDatosId]);
 
   return (
     <Box sx={{ p: 3 }}>
+      <Box sx={{ mb: 2 }}>
+        <Button component={RouterLink} to="/monitor" startIcon={<ArrowBackIcon />} variant="outlined">
+          Volver a bases de datos
+        </Button>
+      </Box>
+
       <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
         Monitor de Salud de Base de Datos
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-        Prueba de concepto — Fase 2
+        {indice?.base_datos?.nombre ?? 'Prueba de concepto — Fase 2'}
       </Typography>
 
       <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>

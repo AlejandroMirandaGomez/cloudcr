@@ -28,6 +28,9 @@ const ControlQuestionnairePage = lazy(() =>
 const ReporteEjecutivoPage = lazy(() =>
   import('../modules/reporte/pages/ReporteEjecutivoPage.jsx'),
 );
+const MonitorSelectorPage = lazy(() =>
+  import('../modules/monitor/pages/MonitorSelectorPage.jsx'),
+);
 const MonitorPage = lazy(() => import('../modules/monitor/pages/MonitorPage.jsx'));
 
 const Protected = ({ children, allowedRoles }) => (
@@ -94,7 +97,11 @@ export const router = createBrowserRouter([
       },
       {
         path: 'monitor',
-        element: <Suspense fallback={null}><MonitorPage /></Suspense>,
+        element: <Protected allowedRoles={['evaluador']}><MonitorSelectorPage /></Protected>,
+      },
+      {
+        path: 'monitor/:baseDatosId',
+        element: <Protected allowedRoles={['evaluador']}><MonitorPage /></Protected>,
       },
     ],
   },
