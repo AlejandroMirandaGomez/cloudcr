@@ -1,14 +1,26 @@
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import BarraHorizontal from '../../reporte/components/BarraHorizontal.jsx';
+import { Link as RouterLink } from 'react-router-dom';
 import EstadoChip from './EstadoChip.jsx';
 
-const COLOR_BARRA = { verde: '#2e7d32', amarillo: '#ed9b00', rojo: '#c62828' };
-
 /** Tarjeta de un componente del ISBD (Procesos / Memoria / Archivos). */
-export default function ComponenteCard({ icon, titulo, componente }) {
+export default function ComponenteCard({ icon, titulo, componente, to }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 2 }}>
+    <Paper
+      variant="outlined"
+      {...(to ? { component: RouterLink, to } : {})}
+      sx={{
+        p: 2.5,
+        borderRadius: 2,
+        display: 'block',
+        textDecoration: 'none',
+        color: 'inherit',
+        ...(to && {
+          transition: 'border-color 150ms ease, background-color 150ms ease',
+          '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+        }),
+      }}
+    >
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
         <Box
           sx={{
             width: 40,
@@ -32,22 +44,6 @@ export default function ComponenteCard({ icon, titulo, componente }) {
           </Typography>
         </Box>
         <EstadoChip color={componente.color} label={componente.estado} />
-      </Stack>
-
-      <Stack spacing={1.5}>
-        {componente.metricas.map((m) => (
-          <Box key={m.etiqueta}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
-              {m.etiqueta}
-            </Typography>
-            <BarraHorizontal
-              valor={m.valor}
-              max={m.limite}
-              color={m.valor > m.limite ? COLOR_BARRA.rojo : COLOR_BARRA.verde}
-              etiqueta={`${m.valor} ${m.unidad}`}
-            />
-          </Box>
-        ))}
       </Stack>
     </Paper>
   );

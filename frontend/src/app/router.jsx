@@ -32,6 +32,21 @@ const MonitorSelectorPage = lazy(() =>
   import('../modules/monitor/pages/MonitorSelectorPage.jsx'),
 );
 const MonitorPage = lazy(() => import('../modules/monitor/pages/MonitorPage.jsx'));
+const ProcesosDetallePage = lazy(() =>
+  import('../modules/monitor/pages/ProcesosDetallePage.jsx'),
+);
+const MemoriaDetallePage = lazy(() =>
+  import('../modules/monitor/pages/MemoriaDetallePage.jsx'),
+);
+const ArchivosDetallePage = lazy(() =>
+  import('../modules/monitor/pages/ArchivosDetallePage.jsx'),
+);
+const VariableDetallePage = lazy(() =>
+  import('../modules/monitor/pages/VariableDetallePage.jsx'),
+);
+const VariableEditarPage = lazy(() =>
+  import('../modules/monitor/pages/VariableEditarPage.jsx'),
+);
 
 const Protected = ({ children, allowedRoles }) => (
   <ProtectedRoute allowedRoles={allowedRoles}>
@@ -102,6 +117,26 @@ export const router = createBrowserRouter([
       {
         path: 'monitor/:baseDatosId',
         element: <Protected allowedRoles={['evaluador']}><MonitorPage /></Protected>,
+      },
+      {
+        path: 'monitor/:baseDatosId/procesos',
+        element: <Protected allowedRoles={['evaluador']}><ProcesosDetallePage /></Protected>,
+      },
+      {
+        path: 'monitor/:baseDatosId/memoria',
+        element: <Protected allowedRoles={['evaluador']}><MemoriaDetallePage /></Protected>,
+      },
+      {
+        path: 'monitor/:baseDatosId/archivos',
+        element: <Protected allowedRoles={['evaluador']}><ArchivosDetallePage /></Protected>,
+      },
+      {
+        path: 'monitor/:baseDatosId/:componente/:variableId',
+        element: <Protected allowedRoles={['evaluador']}><VariableDetallePage /></Protected>,
+      },
+      {
+        path: 'monitor/:baseDatosId/:componente/:variableId/editar',
+        element: <Protected allowedRoles={['evaluador']}><VariableEditarPage /></Protected>,
       },
     ],
   },

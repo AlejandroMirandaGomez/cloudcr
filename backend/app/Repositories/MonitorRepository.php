@@ -195,11 +195,9 @@ final class MonitorRepository
     private function estadoDe(float $valor): array
     {
         return match (true) {
-            $valor >= 90 => ['nombre' => 'Optimo', 'color' => 'verde'],
-            $valor >= 75 => ['nombre' => 'Saludable', 'color' => 'verde'],
-            $valor >= 60 => ['nombre' => 'Advertencia', 'color' => 'amarillo'],
-            $valor >= 40 => ['nombre' => 'Degradado', 'color' => 'rojo'],
-            default      => ['nombre' => 'Critico', 'color' => 'rojo'],
+            $valor >= 75 => ['nombre' => 'Verde', 'color' => 'verde'],
+            $valor >= 60 => ['nombre' => 'Amarillo', 'color' => 'amarillo'],
+            default      => ['nombre' => 'Rojo', 'color' => 'rojo'],
         };
     }
 }

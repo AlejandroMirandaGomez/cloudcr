@@ -35,12 +35,9 @@ export default function HistoricoChart({ historico }) {
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 1 }}>
+      <Stack spacing={0.25} sx={{ mb: 1.5 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
           Evolucion del ISBD (ultimos {historico.length} dias)
-        </Typography>
-        <Typography variant="caption" color="text.disabled">
-          Escala real 0-100 · eje ajustado a {min}-{max}
         </Typography>
       </Stack>
 

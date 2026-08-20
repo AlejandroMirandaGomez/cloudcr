@@ -9,6 +9,7 @@ composer.lock
 # Artefactos locales: instalador de skills, dependencias sueltas de composer en la raiz, logs
 /vendor/
 /.agents/
+/.idea/
 /.claude/
 skills-lock.json
 error.log

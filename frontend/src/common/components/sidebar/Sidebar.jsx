@@ -24,12 +24,6 @@ const NAV_ITEMS = [
   { label: 'Inicio', icon: <HomeIcon />, path: '/', show: () => true },
   { label: 'Mi Panel', icon: <DashboardIcon />, path: '/panel', show: (session) => !!session },
   {
-    label: 'Monitor de Salud',
-    icon: <MonitorHeartIcon />,
-    path: '/monitor',
-    show: (session) => session?.rol === 'evaluador',
-  },
-  {
     label: 'Evaluación del riesgo',
     icon: <SecurityIcon />,
     children: [
@@ -44,6 +38,18 @@ const NAV_ITEMS = [
         icon: <ListAltIcon />,
         path: '/control-list',
         show: () => true,
+      },
+    ],
+  },
+  {
+    label: 'Monitor de bases de datos',
+    icon: <MonitorHeartIcon />,
+    children: [
+      {
+        label: 'Monitor de salud',
+        icon: <MonitorHeartIcon />,
+        path: '/monitor',
+        show: (session) => session?.rol === 'evaluador',
       },
     ],
   },
@@ -100,22 +106,27 @@ function DrawerContent({ onClose }) {
       <Divider />
 
       <List dense sx={{ px: 1, pt: 1, flex: 1, overflowY: 'auto' }}>
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.map((item, index) => {
           const { label, icon, path, children } = item;
 
           if (children) {
             const visibleChildren = children.filter((child) => child.show(session));
             if (visibleChildren.length === 0) return null;
             const isOpen = openGroups.has(label);
+            const isFirstGroup = !NAV_ITEMS.slice(0, index).some(
+              (prev) => prev.children?.some((child) => child.show(session)),
+            );
 
             return (
               <Box key={label}>
-                <Typography
-                  variant="overline"
-                  sx={{ display: 'block', px: 1.5, pt: 1.5, pb: 0.5, fontWeight: 700, color: 'text.secondary' }}
-                >
-                  Productos
-                </Typography>
+                {isFirstGroup && (
+                  <Typography
+                    variant="overline"
+                    sx={{ display: 'block', px: 1.5, pt: 1.5, pb: 0.5, fontWeight: 700, color: 'text.secondary' }}
+                  >
+                    Productos
+                  </Typography>
+                )}
                 <ListItemButton
                   onClick={() => toggleGroup(label)}
                   sx={{ borderRadius: 1, mb: 0.5, px: 1.5 }}

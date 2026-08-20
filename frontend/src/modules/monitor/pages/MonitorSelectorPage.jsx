@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Alert, Box, Typography } from '@mui/material';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import {
+  Alert, Box, Button, Container, Dialog, DialogActions, DialogContent,
+  DialogTitle, MenuItem, Stack, TextField, Typography,
+} from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AddIcon from '@mui/icons-material/Add';
 import { CardsSkeleton } from '../../../common/components/loading/Skeletons.jsx';
 import BaseDatosCard from '../components/BaseDatosCard.jsx';
 import { getBasesDatosMonitoreadas } from '../services/monitor.js';
+
+const MOTORES = ['Oracle', 'PostgreSQL', 'MySQL', 'SQL Server'];
 
 /**
  * Pantalla selectora del monitor: lista las bases de datos monitoreadas
@@ -15,6 +22,31 @@ export default function MonitorSelectorPage() {
   const [basesDatos, setBasesDatos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [dialogAbierto, setDialogAbierto] = useState(false);
+  const [nombre, setNombre] = useState('');
+  const [motor, setMotor] = useState(MOTORES[0]);
+
+  const abrirDialogo = () => {
+    setNombre('');
+    setMotor(MOTORES[0]);
+    setDialogAbierto(true);
+  };
+
+  const agregarBaseDatos = () => {
+    setBasesDatos((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        nombre: nombre.trim(),
+        motor,
+        estado: 'Pendiente',
+        color: 'amarillo',
+        actualizado_en: 'Sin datos aun',
+      },
+    ]);
+    setDialogAbierto(false);
+  };
 
   useEffect(() => {
     let activo = true;
@@ -30,11 +62,25 @@ export default function MonitorSelectorPage() {
   }, []);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
+    <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Stack
+        direction="row"
+        spacing={2}
+        useFlexGap
+        sx={{ mb: 2, flexWrap: 'wrap', justifyContent: 'space-between' }}
+      >
+        <Button component={RouterLink} to="/" startIcon={<ArrowBackIcon />} variant="outlined">
+          Volver al inicio
+        </Button>
+        <Button onClick={abrirDialogo} startIcon={<AddIcon />} variant="contained">
+          Agregar base de datos
+        </Button>
+      </Stack>
+
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
         Monitor de Salud de Base de Datos
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Seleccione una base de datos monitoreada para ver su dashboard de salud.
       </Typography>
 
@@ -57,6 +103,36 @@ export default function MonitorSelectorPage() {
           ))}
         </Box>
       )}
-    </Box>
+
+      <Dialog open={dialogAbierto} onClose={() => setDialogAbierto(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Agregar base de datos</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <TextField
+            label="Nombre"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            autoFocus
+            fullWidth
+          />
+          <TextField
+            select
+            label="Motor"
+            value={motor}
+            onChange={(e) => setMotor(e.target.value)}
+            fullWidth
+          >
+            {MOTORES.map((m) => (
+              <MenuItem key={m} value={m}>{m}</MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogAbierto(false)}>Cancelar</Button>
+          <Button onClick={agregarBaseDatos} variant="contained" disabled={!nombre.trim()}>
+            Agregar
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
   );
 }

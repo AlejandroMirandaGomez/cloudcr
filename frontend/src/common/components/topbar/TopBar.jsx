@@ -3,7 +3,7 @@ import {
   AppBar, Box, Button, IconButton, Toolbar, Tooltip, Typography,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import LoginIcon from '@mui/icons-material/Login';
+import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
@@ -62,54 +62,78 @@ export default function TopBar({ onMenuClick }) {
             alt=""
             sx={{ width: 28, height: 28, display: 'block' }}
           />
-          <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '-0.01em' }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 800,
+              letterSpacing: '-0.01em',
+              display: { xs: 'none', sm: 'block' },
+            }}
+          >
             CloudCR
           </Typography>
         </Box>
 
         <Box sx={{ flex: 1 }} />
 
-        <Tooltip title={mode === 'dark' ? 'Modo claro' : 'Modo oscuro'}>
-          <IconButton onClick={toggleMode} aria-label="Cambiar tema">
-            {mode === 'dark' ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />}
-          </IconButton>
-        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Tooltip title={mode === 'dark' ? 'Modo claro' : 'Modo oscuro'}>
+            <IconButton
+              onClick={toggleMode}
+              aria-label="Cambiar tema"
+              sx={{ p: 0.75, mr: -0.75 }}
+            >
+              {mode === 'dark' ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />}
+            </IconButton>
+          </Tooltip>
 
-        {session ? (
-          <>
-            {/* Indicador de sesion: deja claro que navegar no cierra la sesion. */}
-            <Typography
-              variant="body2"
+          {session ? (
+            <>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                  maxWidth: 180,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  display: { xs: 'none', md: 'block' },
+                }}
+              >
+                {session.nombre}
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<LogoutIcon />}
+                onClick={cerrarSesion}
+                sx={{
+                  whiteSpace: 'nowrap',
+                  minWidth: 'auto',
+                  px: { xs: 1.25, sm: 2 },
+                  '& .MuiButton-startIcon': { display: { xs: 'none', sm: 'inherit' } },
+                }}
+              >
+                Cerrar sesión
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<PersonIcon />}
+              onClick={() => navigate('/login')}
               sx={{
-                fontWeight: 600,
-                maxWidth: 180,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                display: { xs: 'none', md: 'block' },
+                minWidth: 'auto',
+                px: { xs: 1.25, sm: 2 },
+                '& .MuiButton-startIcon': { display: { xs: 'none', sm: 'inherit' } },
               }}
             >
-              {session.nombre}
-            </Typography>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<LogoutIcon />}
-              onClick={cerrarSesion}
-            >
-              Cerrar sesión
+              Iniciar sesión
             </Button>
-          </>
-        ) : (
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<LoginIcon />}
-            onClick={() => navigate('/login')}
-          >
-            Iniciar sesión
-          </Button>
-        )}
+          )}
+        </Box>
       </Toolbar>
     </AppBar>
   );

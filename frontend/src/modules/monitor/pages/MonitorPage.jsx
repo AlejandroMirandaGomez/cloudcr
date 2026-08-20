@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
-import { Alert, Box, Button, Typography } from '@mui/material';
+import {
+  Alert, Box, Button, Container, Stack, Typography,
+} from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
@@ -9,8 +11,7 @@ import { CardsSkeleton } from '../../../common/components/loading/Skeletons.jsx'
 import IndiceSaludCard from '../components/IndiceSaludCard.jsx';
 import ComponenteCard from '../components/ComponenteCard.jsx';
 import AlertasPanel from '../components/AlertasPanel.jsx';
-import HistoricoChart from '../components/HistoricoChart.jsx';
-import { getIndiceSalud, getAlertasSalud, getHistoricoSalud } from '../services/monitor.js';
+import { getIndiceSalud, getAlertasSalud } from '../services/monitor.js';
 
 /**
  * Fase 2 - Monitor de Salud de Base de Datos. Prueba de concepto de
@@ -25,7 +26,6 @@ export default function MonitorPage() {
   const { baseDatosId } = useParams();
   const [indice, setIndice] = useState(null);
   const [alertas, setAlertas] = useState([]);
-  const [historico, setHistorico] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -33,12 +33,11 @@ export default function MonitorPage() {
     let activo = true;
     setLoading(true);
 
-    Promise.all([getIndiceSalud(baseDatosId), getAlertasSalud(), getHistoricoSalud()])
-      .then(([i, a, h]) => {
+    Promise.all([getIndiceSalud(baseDatosId), getAlertasSalud()])
+      .then(([i, a]) => {
         if (!activo) return;
         setIndice(i);
         setAlertas(a);
-        setHistorico(h);
       })
       .catch((e) => activo && setError(e.message))
       .finally(() => activo && setLoading(false));
@@ -49,26 +48,19 @@ export default function MonitorPage() {
   }, [baseDatosId]);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 2 }}>
+    <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Stack direction="row" sx={{ mb: 2 }}>
         <Button component={RouterLink} to="/monitor" startIcon={<ArrowBackIcon />} variant="outlined">
           Volver a bases de datos
         </Button>
-      </Box>
+      </Stack>
 
-      <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
+      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
         Monitor de Salud de Base de Datos
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {indice?.base_datos?.nombre ?? 'Prueba de concepto — Fase 2'}
       </Typography>
-
-      <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
-        Datos simulados para esta demo. Aun no esta confirmado si el monitor se conectara a una
-        instancia Oracle real (V$PROCESS, V$SGA, V$DATAFILE...) o si se seguira simulando; los
-        pesos (30/35/35) y los umbrales tambien son una propuesta inicial pendiente de validar
-        con el profesor. Nada de esto toca la base de datos de CloudCR.
-      </Alert>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
@@ -91,9 +83,24 @@ export default function MonitorPage() {
               Componentes
             </Typography>
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' } }}>
-              <ComponenteCard icon={<DnsIcon color="primary" />} titulo="Procesos" componente={indice.componentes.procesos} />
-              <ComponenteCard icon={<MemoryIcon color="primary" />} titulo="Memoria" componente={indice.componentes.memoria} />
-              <ComponenteCard icon={<StorageIcon color="primary" />} titulo="Archivos" componente={indice.componentes.archivos} />
+              <ComponenteCard
+                icon={<DnsIcon color="primary" />}
+                titulo="Procesos"
+                componente={indice.componentes.procesos}
+                to={`/monitor/${baseDatosId}/procesos`}
+              />
+              <ComponenteCard
+                icon={<MemoryIcon color="primary" />}
+                titulo="Memoria"
+                componente={indice.componentes.memoria}
+                to={`/monitor/${baseDatosId}/memoria`}
+              />
+              <ComponenteCard
+                icon={<StorageIcon color="primary" />}
+                titulo="Archivos"
+                componente={indice.componentes.archivos}
+                to={`/monitor/${baseDatosId}/archivos`}
+              />
             </Box>
           </Box>
 
@@ -103,10 +110,8 @@ export default function MonitorPage() {
             </Typography>
             <AlertasPanel alertas={alertas} />
           </Box>
-
-          <HistoricoChart historico={historico} />
         </Box>
       ) : null}
-    </Box>
+    </Container>
   );
 }
