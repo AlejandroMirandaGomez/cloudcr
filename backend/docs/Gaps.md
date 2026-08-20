@@ -118,6 +118,12 @@ cualquier endpoint. El control de acceso por rol vive solo en el frontend
 token (p. ej. firmado con HMAC) validado en `Bootstrap`/middleware, y filtrar por
 `organizacion_id`/`evaluador_id` de la sesion en los endpoints de lectura.
 
+Esto tambien aplica a `/monitor/*` (Fase 2): en frontend esas rutas ya estan restringidas a
+`session.rol === 'evaluador'` (`router.jsx`, `Sidebar.jsx`), pero el backend no valida rol
+todavia, asi que un cliente que adivine la URL puede llamar el endpoint igual. No se agrego
+un mecanismo de auth solo para este modulo para no duplicar solucion cuando se resuelva
+este punto de forma general.
+
 ---
 
 ## HU-001 — Datos de contacto de la organizacion  🟡 parcial

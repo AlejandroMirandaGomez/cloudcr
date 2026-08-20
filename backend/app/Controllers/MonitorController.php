@@ -18,9 +18,14 @@ final class MonitorController extends BaseController
     {
     }
 
+    public function basesDatos(Request $r): void
+    {
+        Response::ok($this->repo->basesDatos());
+    }
+
     public function indice(Request $r): void
     {
-        Response::ok($this->repo->indice());
+        Response::ok($this->repo->indice($r->query('baseDatosId')));
     }
 
     public function alertas(Request $r): void
