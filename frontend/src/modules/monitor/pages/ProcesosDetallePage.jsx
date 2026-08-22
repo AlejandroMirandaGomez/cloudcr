@@ -7,19 +7,23 @@ import Table from '../../../common/components/basic-table/Table.jsx';
 import VariableRowActionsMenu from '../components/VariableRowActionsMenu.jsx';
 import PesosToolbar from '../components/PesosToolbar.jsx';
 import PesoCell from '../components/PesoCell.jsx';
+import EstadoChip from '../components/EstadoChip.jsx';
+import IndiceComponenteBanner from '../components/IndiceComponenteBanner.jsx';
 import usePesosEditables from '../hooks/usePesosEditables.js';
-import { formatearMetrica } from '../data/variablesMonitor.js';
+import useIndiceComponente from '../hooks/useIndiceComponente.js';
+import { estadoDeVariable } from '../lib/estadoVariable.js';
 
 const COMPONENTE_ID = 'procesos';
 
 export default function ProcesosDetallePage() {
   const { baseDatosId } = useParams();
   const pesos = usePesosEditables(COMPONENTE_ID);
+  const componente = useIndiceComponente(baseDatosId, COMPONENTE_ID);
 
   const columns = useMemo(
     () => [
       { accessorKey: 'variable', header: 'Variable', size: 200 },
-      { accessorKey: 'descripcion', header: 'Descripción', size: 260 },
+      { accessorKey: 'descripcion', header: 'Descripción', size: 240 },
       {
         accessorKey: 'dato',
         header: 'Dato',
@@ -29,9 +33,25 @@ export default function ProcesosDetallePage() {
       { accessorKey: 'fuente', header: 'Fuente', size: 220 },
       { accessorKey: 'como', header: 'Cómo', size: 90 },
       {
-        id: 'metrica',
-        header: 'Métrica',
-        accessorFn: formatearMetrica,
+        id: 'valor',
+        header: 'Valor',
+        accessorFn: (row) => estadoDeVariable(row, baseDatosId).valor,
+        Cell: ({ row }) => {
+          const { valor, unidad } = estadoDeVariable(row.original, baseDatosId);
+          return `${valor} ${unidad}`;
+        },
+        size: 110,
+      },
+      {
+        id: 'estado',
+        header: 'Estado',
+        accessorFn: (row) => estadoDeVariable(row, baseDatosId).estado ?? 'Config',
+        Cell: ({ row }) => {
+          const { estado, color } = estadoDeVariable(row.original, baseDatosId);
+          return estado
+            ? <EstadoChip color={color} label={estado} />
+            : <Chip label="Config" size="small" variant="outlined" />;
+        },
         size: 110,
       },
       {
@@ -51,7 +71,7 @@ export default function ProcesosDetallePage() {
         ),
       },
     ],
-    [pesos.editando, pesos.modo, pesos.maximoPara, pesos.editarPeso, pesos.alternarBloqueo],
+    [pesos.editando, pesos.modo, pesos.maximoPara, pesos.editarPeso, pesos.alternarBloqueo, baseDatosId],
   );
 
   return (
@@ -80,6 +100,8 @@ export default function ProcesosDetallePage() {
       <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
         Variables del indicador de procesos (IP)
       </Typography>
+
+      <IndiceComponenteBanner titulo="Procesos" indicador="IP" componente={componente} />
 
       <PesosToolbar
         editando={pesos.editando}

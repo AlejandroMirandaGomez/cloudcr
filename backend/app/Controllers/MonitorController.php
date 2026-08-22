@@ -30,11 +30,11 @@ final class MonitorController extends BaseController
 
     public function alertas(Request $r): void
     {
-        Response::ok($this->repo->alertas());
+        Response::ok($this->repo->alertas($r->query('baseDatosId')));
     }
 
     public function historico(Request $r): void
     {
-        Response::ok($this->repo->historico());
+        Response::ok($this->repo->historico($r->query('baseDatosId')));
     }
 }

@@ -24,16 +24,21 @@ import { getIndiceSalud, getAlertasSalud } from '../services/monitor.js';
  */
 export default function MonitorPage() {
   const { baseDatosId } = useParams();
+  const [baseDatosCargada, setBaseDatosCargada] = useState(baseDatosId);
   const [indice, setIndice] = useState(null);
   const [alertas, setAlertas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  if (baseDatosCargada !== baseDatosId) {
+    setBaseDatosCargada(baseDatosId);
+    setLoading(true);
+  }
+
   useEffect(() => {
     let activo = true;
-    setLoading(true);
 
-    Promise.all([getIndiceSalud(baseDatosId), getAlertasSalud()])
+    Promise.all([getIndiceSalud(baseDatosId), getAlertasSalud(baseDatosId)])
       .then(([i, a]) => {
         if (!activo) return;
         setIndice(i);

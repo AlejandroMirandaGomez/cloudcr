@@ -5,8 +5,8 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
-  actualizarLimites,
   actualizarPesos,
+  actualizarUmbrales,
   getComponente,
   getPesos,
   getPreferenciaPesos,
@@ -29,13 +29,14 @@ export default function VariableEditarPage() {
   const componente = getComponente(componenteId);
   const variable = getVariable(componenteId, variableId);
   const detalleTo = `/monitor/${baseDatosId}/${componenteId}/${variableId}`;
+  const esFijo = variable?.sentido === 'fijo';
 
   const preferencia = getPreferenciaPesos(componenteId);
   const pesosActuales = useMemo(() => getPesos(componenteId), [componenteId]);
   const esRelativo = preferencia.modo === MODO_PESOS_RELATIVOS;
 
-  const [limiteInferior, setLimiteInferior] = useState(variable?.limiteInferior ?? '');
-  const [limiteSuperior, setLimiteSuperior] = useState(variable?.limiteSuperior ?? '');
+  const [limiteAdvertencia, setLimiteAdvertencia] = useState(variable?.limiteAdvertencia ?? '');
+  const [limiteCritico, setLimiteCritico] = useState(variable?.limiteCritico ?? '');
   const [peso, setPeso] = useState(variable?.peso ?? '');
   const [error, setError] = useState('');
 
@@ -83,18 +84,26 @@ export default function VariableEditarPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    const inferior = Number(limiteInferior);
-    const superior = Number(limiteSuperior);
+    if (!esFijo) {
+      const advertencia = Number(limiteAdvertencia);
+      const critico = Number(limiteCritico);
+
+      if (limiteAdvertencia === '' || limiteCritico === '' || Number.isNaN(advertencia) || Number.isNaN(critico)) {
+        setError('Ingrese ambos umbrales.');
+        return;
+      }
+      if (variable.sentido === 'alto_malo' && critico < advertencia) {
+        setError('El umbral crítico debe ser mayor o igual al umbral de advertencia.');
+        return;
+      }
+      if (variable.sentido === 'alto_bueno' && critico > advertencia) {
+        setError('El umbral crítico debe ser menor o igual al umbral de advertencia.');
+        return;
+      }
+    }
+
     const pesoNumero = Number(peso);
 
-    if (limiteInferior === '' || limiteSuperior === '' || Number.isNaN(inferior) || Number.isNaN(superior)) {
-      setError('Ingrese ambos límites.');
-      return;
-    }
-    if (superior < inferior) {
-      setError('El límite superior debe ser igual o mayor al límite inferior.');
-      return;
-    }
     if (peso === '' || Number.isNaN(pesoNumero)) {
       setError('Ingrese el peso de la variable.');
       return;
@@ -108,7 +117,9 @@ export default function VariableEditarPage() {
       return;
     }
 
-    actualizarLimites(componenteId, variableId, inferior, superior);
+    if (!esFijo) {
+      actualizarUmbrales(componenteId, variableId, Number(limiteAdvertencia), Number(limiteCritico));
+    }
 
     const pesosNuevos = esRelativo
       ? editarPesoModo2({ pesos: pesosActuales, id: variableId, nuevoValor: pesoNumero })
@@ -144,31 +155,46 @@ export default function VariableEditarPage() {
         )}
 
         <Box component="form" onSubmit={handleSubmit}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-            Métrica
-          </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
-            <TextField
-              label="Límite inferior"
-              type="number"
-              required
-              fullWidth
-              size="small"
-              value={limiteInferior}
-              onChange={(e) => setLimiteInferior(e.target.value)}
-              slotProps={{ htmlInput: { step: 'any' } }}
-            />
-            <TextField
-              label="Límite superior"
-              type="number"
-              required
-              fullWidth
-              size="small"
-              value={limiteSuperior}
-              onChange={(e) => setLimiteSuperior(e.target.value)}
-              slotProps={{ htmlInput: { step: 'any' } }}
-            />
-          </Stack>
+          {esFijo ? (
+            <Alert severity="info" sx={{ mb: 3 }}>
+              Esta variable es un dato de configuración (no cambia con la salud del momento), por lo
+              que no tiene umbrales de advertencia/crítico que editar.
+            </Alert>
+          ) : (
+            <>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                Umbrales
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                {variable.sentido === 'alto_malo'
+                  ? 'A partir de qué valor la variable pasa a Amarillo y a Rojo (unidad: '
+                  : 'Por debajo de qué valor la variable pasa a Amarillo y a Rojo (unidad: '}
+                {variable.unidad}).
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
+                <TextField
+                  label="Umbral de advertencia"
+                  type="number"
+                  required
+                  fullWidth
+                  size="small"
+                  value={limiteAdvertencia}
+                  onChange={(e) => setLimiteAdvertencia(e.target.value)}
+                  slotProps={{ htmlInput: { step: 'any' } }}
+                />
+                <TextField
+                  label="Umbral crítico"
+                  type="number"
+                  required
+                  fullWidth
+                  size="small"
+                  value={limiteCritico}
+                  onChange={(e) => setLimiteCritico(e.target.value)}
+                  slotProps={{ htmlInput: { step: 'any' } }}
+                />
+              </Stack>
+            </>
+          )}
 
           <Divider sx={{ my: 3 }} />
 

@@ -2,8 +2,10 @@ import { Link as RouterLink, useParams } from 'react-router-dom';
 import { Box, Button, Chip, Divider, Paper, Stack, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
-import { formatearMetrica, getComponente, getVariable } from '../data/variablesMonitor.js';
+import { getComponente, getVariable } from '../data/variablesMonitor.js';
+import { estadoDeVariable } from '../lib/estadoVariable.js';
 import { formatearPeso } from '../lib/pesos.js';
+import EstadoChip from '../components/EstadoChip.jsx';
 
 function Field({ label, value }) {
   if (value === undefined || value === null || value === '') return null;
@@ -39,6 +41,9 @@ export default function VariableDetallePage() {
     );
   }
 
+  const estado = estadoDeVariable(variable, baseDatosId);
+  const esFijo = variable.sentido === 'fijo';
+
   return (
     <Box sx={{ p: 3, maxWidth: 720, mx: 'auto' }}>
       <Stack direction="row" spacing={2} useFlexGap sx={{ mb: 3, flexWrap: 'wrap', justifyContent: 'space-between' }}>
@@ -73,13 +78,30 @@ export default function VariableDetallePage() {
         <Divider sx={{ my: 3 }} />
 
         <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>
-          Métrica
+          Valor actual (simulado)
         </Typography>
-        <Stack direction="row" spacing={4} useFlexGap sx={{ flexWrap: 'wrap' }}>
-          <Field label="Límite inferior" value={variable.limiteInferior} />
-          <Field label="Límite superior" value={variable.limiteSuperior} />
-          <Field label="Rango" value={formatearMetrica(variable)} />
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: esFijo ? 0 : 1 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            {estado.valor} {estado.unidad}
+          </Typography>
+          {estado.estado
+            ? <EstadoChip color={estado.color} label={estado.estado} />
+            : <Chip label="Valor de configuración" size="small" variant="outlined" />}
         </Stack>
+        {!esFijo && (
+          <Typography variant="caption" color="text.secondary">
+            Umbral de advertencia: {variable.limiteAdvertencia} {variable.unidad} · Umbral crítico: {variable.limiteCritico} {variable.unidad}
+          </Typography>
+        )}
+
+        <Divider sx={{ my: 3 }} />
+
+        <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>
+          Por qué se eligió esta variable
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {variable.justificacion}
+        </Typography>
 
         <Divider sx={{ my: 3 }} />
 
