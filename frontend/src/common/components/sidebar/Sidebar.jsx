@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Box, Collapse, Drawer, IconButton, List, ListItemButton,
+  Box, Chip, Collapse, Drawer, IconButton, List, ListItemButton,
   ListItemIcon, ListItemText, Tooltip, Typography, Divider,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -44,12 +44,20 @@ const NAV_ITEMS = [
   {
     label: 'Monitor de bases de datos',
     icon: <MonitorHeartIcon />,
+    path: '/#servicios',
+    show: (session) => session?.rol !== 'evaluador',
+    nuevo: true,
+  },
+  {
+    label: 'Monitor de bases de datos',
+    icon: <MonitorHeartIcon />,
     children: [
       {
         label: 'Monitor de salud',
         icon: <MonitorHeartIcon />,
         path: '/monitor',
         show: (session) => session?.rol === 'evaluador',
+        nuevo: true,
       },
     ],
   },
@@ -107,7 +115,7 @@ function DrawerContent({ onClose }) {
 
       <List dense sx={{ px: 1, pt: 1, flex: 1, overflowY: 'auto' }}>
         {NAV_ITEMS.map((item, index) => {
-          const { label, icon, path, children } = item;
+          const { label, icon, path, children, nuevo } = item;
 
           if (children) {
             const visibleChildren = children.filter((child) => child.show(session));
@@ -153,6 +161,14 @@ function DrawerContent({ onClose }) {
                           primary={child.label}
                           slotProps={{ primary: { fontSize: '0.875rem', noWrap: true } }}
                         />
+                        {child.nuevo && (
+                          <Chip
+                            label="Nuevo"
+                            size="small"
+                            color="primary"
+                            sx={{ height: 20, fontSize: '0.6875rem', fontWeight: 700, ml: 1 }}
+                          />
+                        )}
                       </ListItemButton>
                     ))}
                   </List>
@@ -163,22 +179,31 @@ function DrawerContent({ onClose }) {
 
           if (!item.show(session)) return null;
 
-          return (
-            <Box key={path}>
-              <ListItemButton
-                selected={location.pathname === path}
-                onClick={() => handleNav(path)}
-                sx={{ borderRadius: 1, mb: 0.5, px: 1.5 }}
-              >
-                <ListItemIcon
-                  sx={{ minWidth: 36, color: location.pathname === path ? 'primary.main' : 'inherit' }}
-                >
-                  {icon}
-                </ListItemIcon>
-                <ListItemText primary={label} slotProps={{ primary: { fontSize: '0.875rem', noWrap: true } }} />
-              </ListItemButton>
-            </Box>
+          const esEnlaceAncla = path.includes('#');
+          const seleccionado = !esEnlaceAncla && location.pathname === path;
+
+          const boton = (
+            <ListItemButton
+              selected={seleccionado}
+              onClick={() => handleNav(path)}
+              sx={{ borderRadius: 1, mb: 0.5, px: 1.5 }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: seleccionado ? 'primary.main' : 'inherit' }}>
+                {icon}
+              </ListItemIcon>
+              <ListItemText primary={label} slotProps={{ primary: { fontSize: '0.875rem', noWrap: true } }} />
+              {nuevo && (
+                <Chip
+                  label="Nuevo"
+                  size="small"
+                  color="primary"
+                  sx={{ height: 20, fontSize: '0.6875rem', fontWeight: 700, ml: 1 }}
+                />
+              )}
+            </ListItemButton>
           );
+
+          return <Box key={path}>{boton}</Box>;
         })}
       </List>
 

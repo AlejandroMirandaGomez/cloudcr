@@ -1,6 +1,7 @@
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  Avatar, Box, Button, Container, Divider,
+  Avatar, Box, Button, Chip, Container, Divider,
   Paper, Stack, Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -8,6 +9,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 import { useAuth } from '../../../common/context/AuthContext.jsx';
 import { heroSx } from '../../../common/styles/hero.js';
 
@@ -32,6 +34,12 @@ const SERVICIOS = [
     titulo: 'Catálogo de Controles ISO 27002',
     descripcion: 'Acceso completo al catálogo de controles con propiedades de confidencialidad, integridad y disponibilidad, guías de implementación y preguntas de cuestionario.',
   },
+  {
+    icon: <MonitorHeartIcon fontSize="large" color="primary" />,
+    titulo: 'Monitor de Salud de Base de Datos',
+    descripcion: 'Supervisamos en tiempo real el estado de procesos, memoria y archivos de tu base de datos con un índice de salud único de 0 a 100, sin que una alerta crítica quede nunca oculta detrás de un buen promedio.',
+    nuevo: true,
+  },
 ];
 
 const EQUIPO = [
@@ -52,8 +60,21 @@ function iniciales(nombre) {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
   const { session } = useAuth();
+
+  useEffect(() => {
+    if (location.hash !== '#servicios') return;
+    // El sidebar dispara esta navegacion al cerrarse: el Drawer de MUI
+    // bloquea el scroll del body mientras se anima el cierre, asi que hay
+    // que esperar a que termine antes de hacer el scrollIntoView o la
+    // animacion del drawer lo cancela.
+    const id = setTimeout(() => {
+      document.getElementById('servicios')?.scrollIntoView({ behavior: 'smooth' });
+    }, 350);
+    return () => clearTimeout(id);
+  }, [location.hash]);
 
   return (
     <Box>
@@ -81,11 +102,7 @@ export default function HomePage() {
             variant="contained"
             size="large"
             onClick={() => navigate('/login')}
-            sx={{
-              position: 'relative',
-              bgcolor: '#26243a',
-              '&:hover': { bgcolor: '#14142b' },
-            }}
+            sx={{ position: 'relative' }}
           >
             Iniciar sesión
           </Button>
@@ -93,7 +110,7 @@ export default function HomePage() {
       </Box>
 
       {/* Servicios */}
-      <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
+      <Container id="servicios" maxWidth="lg" sx={{ py: { xs: 6, md: 8 }, scrollMarginTop: 72 }}>
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 1, textAlign: 'center' }}>
           Nuestros servicios
         </Typography>
@@ -101,17 +118,42 @@ export default function HomePage() {
           Ayudamos a organizaciones a evaluar y mejorar su postura de seguridad en bases de datos.
         </Typography>
         <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
-          {SERVICIOS.map(({ icon, titulo, descripcion }) => (
-            <Paper key={titulo} variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-              <Box sx={{ mb: 1.5 }}>{icon}</Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.75 }}>
-                {titulo}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {descripcion}
-              </Typography>
-            </Paper>
-          ))}
+          {SERVICIOS.map(({ icon, titulo, descripcion, nuevo }, index) => {
+            const esImpar = index === SERVICIOS.length - 1 && SERVICIOS.length % 2 !== 0;
+            return (
+              <Paper
+                key={titulo}
+                variant="outlined"
+                sx={{
+                  p: 3,
+                  borderRadius: 2,
+                  ...(esImpar && {
+                    gridColumn: { sm: '1 / -1' },
+                    maxWidth: { sm: 'calc(50% - 12px)' },
+                    mx: { sm: 'auto' },
+                  }),
+                }}
+              >
+                <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                  {icon}
+                  {nuevo && (
+                    <Chip
+                      label="Nuevo"
+                      size="small"
+                      color="primary"
+                      sx={{ height: 22, fontSize: '0.6875rem', fontWeight: 700 }}
+                    />
+                  )}
+                </Stack>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.75 }}>
+                  {titulo}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {descripcion}
+                </Typography>
+              </Paper>
+            );
+          })}
         </Box>
       </Container>
 

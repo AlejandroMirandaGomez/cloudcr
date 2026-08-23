@@ -20,8 +20,8 @@ function CIDChip({ value }) {
       sx={(t) => ({
         ...CHIP_SX,
         ...(isPrimario && {
-          color: t.palette.mode === 'dark' ? '#8ec9ff' : '#0d47a1',
-          borderColor: t.palette.mode === 'dark' ? 'rgba(142,201,255,0.6)' : '#0d47a1',
+          color: t.palette.primary.main,
+          borderColor: t.palette.primary.main,
         }),
       })}
     />

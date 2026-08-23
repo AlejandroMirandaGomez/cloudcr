@@ -1,6 +1,6 @@
 /**
- * Fondo tipo hero por modo: degradado azul→lavanda con círculos suaves en
- * claro; violetas profundos sobre carbón en oscuro. Incluye el color de texto
+ * Fondo tipo hero por modo: degradado teal con círculos suaves sobre crema en
+ * claro; teal profundo sobre carbón en oscuro. Incluye el color de texto
  * adecuado para cada fondo.
  */
 export function heroSx(mode) {
@@ -8,24 +8,24 @@ export function heroSx(mode) {
     return {
       position: 'relative',
       overflow: 'hidden',
-      color: '#ece8f7',
+      color: '#f0ede6',
       background: `
-        radial-gradient(circle at 12% 85%, rgba(90, 110, 220, 0.35) 0%, transparent 55%),
-        radial-gradient(circle at 88% 15%, rgba(150, 100, 230, 0.3) 0%, transparent 55%),
-        radial-gradient(circle at 55% 105%, rgba(90, 140, 220, 0.25) 0%, transparent 50%),
-        linear-gradient(135deg, #211d38 0%, #251c3d 100%)
+        radial-gradient(circle at 12% 85%, rgba(93, 202, 165, 0.3) 0%, transparent 55%),
+        radial-gradient(circle at 88% 15%, rgba(79, 209, 197, 0.25) 0%, transparent 55%),
+        radial-gradient(circle at 55% 105%, rgba(93, 202, 165, 0.2) 0%, transparent 50%),
+        linear-gradient(135deg, #16221d 0%, #14201f 100%)
       `,
     };
   }
   return {
     position: 'relative',
     overflow: 'hidden',
-    color: '#1a1a2e',
+    color: '#1a1a1a',
     background: `
-      radial-gradient(circle at 12% 85%, rgba(122, 168, 250, 0.55) 0%, transparent 55%),
-      radial-gradient(circle at 88% 15%, rgba(200, 176, 250, 0.5) 0%, transparent 55%),
-      radial-gradient(circle at 55% 105%, rgba(150, 190, 250, 0.45) 0%, transparent 50%),
-      linear-gradient(135deg, #d6e4fb 0%, #e7dcf9 100%)
+      radial-gradient(circle at 12% 85%, rgba(15, 110, 86, 0.28) 0%, transparent 55%),
+      radial-gradient(circle at 88% 15%, rgba(43, 169, 138, 0.24) 0%, transparent 55%),
+      radial-gradient(circle at 55% 105%, rgba(15, 110, 86, 0.2) 0%, transparent 50%),
+      linear-gradient(135deg, #eef0e2 0%, #f5f1e8 100%)
     `,
   };
 }

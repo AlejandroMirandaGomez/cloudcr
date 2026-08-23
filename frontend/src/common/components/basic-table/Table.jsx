@@ -21,17 +21,17 @@ import { readColumnVisibility, writeColumnVisibility } from '../../lib/storage.j
 
 const SUPERFICIES = {
     light: {
-        SURFACE: '#faf8ff',
-        SURFACE_SHADOW: '0 2px 8px rgba(100, 108, 130, 0.10)',
+        SURFACE: '#faf8f2',
+        SURFACE_SHADOW: '0 2px 8px rgba(60, 60, 55, 0.10)',
         PAPER: '#ffffff',
         DIVIDER: 'rgba(0, 0, 0, 0.12)',
         ROW_HOVER: 'rgba(0, 0, 0, 0.04)',
         ROW_STRIPE: 'rgba(0, 0, 0, 0.015)',
     },
     dark: {
-        SURFACE: '#1e1b2e',
+        SURFACE: '#1a1a1a',
         SURFACE_SHADOW: '0 2px 8px rgba(0, 0, 0, 0.35)',
-        PAPER: '#242038',
+        PAPER: '#242424',
         DIVIDER: 'rgba(255, 255, 255, 0.12)',
         ROW_HOVER: 'rgba(255, 255, 255, 0.06)',
         ROW_STRIPE: 'rgba(255, 255, 255, 0.02)',

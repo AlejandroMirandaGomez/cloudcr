@@ -1,6 +1,6 @@
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
-  AppBar, Box, Button, IconButton, Toolbar, Tooltip, Typography,
+  AppBar, Box, Button, IconButton, Link, Toolbar, Tooltip, Typography,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import PersonIcon from '@mui/icons-material/Person';
@@ -118,20 +118,36 @@ export default function TopBar({ onMenuClick }) {
               </Button>
             </>
           ) : (
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<PersonIcon />}
-              onClick={() => navigate('/login')}
-              sx={{
-                whiteSpace: 'nowrap',
-                minWidth: 'auto',
-                px: { xs: 1.25, sm: 2 },
-                '& .MuiButton-startIcon': { display: { xs: 'none', sm: 'inherit' } },
-              }}
-            >
-              Iniciar sesión
-            </Button>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<PersonIcon />}
+                onClick={() => navigate('/login')}
+                sx={{
+                  whiteSpace: 'nowrap',
+                  minWidth: 'auto',
+                  px: { xs: 1.25, sm: 2 },
+                  '& .MuiButton-startIcon': { display: { xs: 'none', sm: 'inherit' } },
+                }}
+              >
+                Iniciar sesión
+              </Button>
+              <Link
+                component="button"
+                type="button"
+                onClick={() => navigate('/#servicios')}
+                underline="hover"
+                sx={{
+                  fontSize: '0.6875rem',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  display: { xs: 'none', sm: 'block' },
+                }}
+              >
+                  ¡Tenemos algo nuevo!
+              </Link>
+            </Box>
           )}
         </Box>
       </Toolbar>

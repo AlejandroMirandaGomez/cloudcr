@@ -1,8 +1,9 @@
 import { createTheme } from '@mui/material/styles';
 
 /**
- * Tema por modo. Mismo lenguaje visual (morado/azul, botones pildora); el modo
- * oscuro usa carbones tenidos de violeta, nunca negro puro.
+ * Tema por modo. Paleta acento teal: el tono cambia de intensidad segun el
+ * modo (oscuro en claro, brillante en oscuro) para mantener contraste contra
+ * el fondo, nunca cambia de matiz. Botones pildora en ambos modos.
  */
 export function buildTheme(mode) {
   const dark = mode === 'dark';
@@ -11,20 +12,23 @@ export function buildTheme(mode) {
     palette: {
       mode,
       primary: {
-        main: dark ? '#a76bff' : '#7e14ff',
-        light: '#c49bff',
-        dark: '#5b0db8',
-        contrastText: '#ffffff',
+        main: dark ? '#5dcaa5' : '#0f6e56',
+        light: dark ? '#8fe0c4' : '#3d9c82',
+        dark: dark ? '#3d9b7c' : '#0a4f3d',
+        contrastText: dark ? '#0b2a22' : '#ffffff',
       },
       secondary: {
-        main: '#47bfff',
-        light: '#7dd4ff',
-        dark: '#0090cc',
-        contrastText: dark ? '#0d1117' : '#ffffff',
+        main: dark ? '#4fd1c5' : '#2ba98a',
+        light: dark ? '#84e3da' : '#5fc7ac',
+        dark: dark ? '#2e9e93' : '#1d7a63',
+        contrastText: dark ? '#0b2a22' : '#ffffff',
       },
       background: dark
-        ? { default: '#161422', paper: '#1e1b2e' }
-        : { default: '#ece8f7', paper: '#ffffff' },
+        ? { default: '#121212', paper: '#242424' }
+        : { default: '#f5f1e8', paper: '#ffffff' },
+      text: dark
+        ? { primary: '#f0ede6', secondary: 'rgba(240,237,230,0.7)' }
+        : { primary: '#1a1a1a', secondary: 'rgba(26,26,26,0.6)' },
     },
     shape: { borderRadius: 8 },
     typography: {
