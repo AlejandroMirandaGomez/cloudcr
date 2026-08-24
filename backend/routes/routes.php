@@ -112,6 +112,9 @@ $router->get('/monitor/indice', [$monitor, 'indice']);
 $router->get('/monitor/alertas', [$monitor, 'alertas']);
 $router->get('/monitor/historico', [$monitor, 'historico']);
 $router->get('/monitor/variables', [$monitor, 'variables']);
+$router->put('/monitor/ajustes', [$monitor, 'guardarAjustes']);
+$router->get('/monitor/umbrales-indice', [$monitor, 'umbralesIndice']);
+$router->put('/monitor/umbrales-indice', [$monitor, 'guardarUmbralesIndice']);
 
 // Escritura: la usa el collector local, autenticado con el secreto compartido
 // X-Collector-Token. Es el unico endpoint del API que exige credencial propia.

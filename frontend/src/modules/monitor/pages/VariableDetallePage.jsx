@@ -4,7 +4,9 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import { getComponente, getVariable } from '../data/variablesMonitor.js';
 import useMediciones from '../hooks/useMediciones.js';
-import { estadoDeVariable, formatearValor } from '../lib/estadoVariable.js';
+import { describirUmbrales, estadoDeVariable, formatearValor } from '../lib/estadoVariable.js';
+import { calcularDominio, expandirDominio } from '../lib/escalaUmbrales.js';
+import EscalaUmbrales from '../components/EscalaUmbrales.jsx';
 import { formatearPeso } from '../lib/pesos.js';
 import EstadoChip from '../components/EstadoChip.jsx';
 
@@ -45,7 +47,8 @@ export default function VariableDetallePage() {
   }
 
   const estado = estadoDeVariable(variable, mediciones);
-  const esFijo = variable.sentido === 'fijo';
+  const esConfiguracion = variable.esConfiguracion === true;
+  const escalaUmbrales = describirUmbrales(variable);
 
   return (
     <Box sx={{ p: 3, maxWidth: 720, mx: 'auto' }}>
@@ -83,7 +86,7 @@ export default function VariableDetallePage() {
         <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>
           Valor actual
         </Typography>
-        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: esFijo ? 0 : 1 }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: esConfiguracion ? 0 : 1 }}>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             {formatearValor(estado)}
           </Typography>
@@ -91,14 +94,29 @@ export default function VariableDetallePage() {
           {!estado.medido && (
             <Chip label="Sin dato del collector" size="small" variant="outlined" />
           )}
-          {estado.medido && esFijo && (
+          {estado.medido && esConfiguracion && (
             <Chip label="Valor de configuración" size="small" variant="outlined" />
           )}
         </Stack>
-        {!esFijo && (
-          <Typography variant="caption" color="text.secondary">
-            Umbral de advertencia: {variable.limiteAdvertencia} {variable.unidad} · Umbral crítico: {variable.limiteCritico} {variable.unidad}
-          </Typography>
+        {escalaUmbrales && (
+          <>
+            <Box sx={{ mt: 2, mb: 1 }}>
+              <EscalaUmbrales
+                umbralVerde={variable.umbralVerde}
+                umbralRojo={variable.umbralRojo}
+                unidad={variable.unidad}
+                dominio={expandirDominio(
+                  calcularDominio(variable.umbralVerde, variable.umbralRojo, variable.unidad),
+                  estado.medido ? estado.valor : null,
+                  variable.unidad,
+                )}
+                valorActual={estado.medido ? Number(estado.valor) : undefined}
+              />
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              {escalaUmbrales}
+            </Typography>
+          </>
         )}
 
         <Divider sx={{ my: 3 }} />

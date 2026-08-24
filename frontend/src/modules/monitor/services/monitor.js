@@ -25,3 +25,12 @@ export const getHistoricoSalud = (baseDatosId, limite) =>
  */
 export const getVariablesMedidas = (baseDatosId, componente) =>
   conBaseDatosId('/monitor/variables', baseDatosId, { componente });
+
+export const guardarAjustesVariables = (baseDatosId, componente, variables) =>
+  api.put('/monitor/ajustes', { baseDatosId, componente, variables });
+
+export const getUmbralesIndice = (baseDatosId) =>
+  conBaseDatosId('/monitor/umbrales-indice', baseDatosId);
+
+export const guardarUmbralesIndice = (baseDatosId, umbrales) =>
+  api.put('/monitor/umbrales-indice', { baseDatosId, umbrales });

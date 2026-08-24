@@ -135,8 +135,8 @@ ALTER SYSTEM SET processes = 150 SCOPE = SPFILE;
 Para el demo conviene usar lock contention y tablespace, que sí cruzan umbrales
 sin tocar la configuración de la instancia.
 
-La **intensidad controla la profundidad**: con la penalización weakest-link, una
-crítica leve deja el ISBD apenas en rojo y una profunda lo hunde. En lock
+La **intensidad controla la profundidad**: con la media geométrica ponderada,
+una crítica leve deja el ISBD apenas en rojo y una profunda lo hunde. En lock
 contention, intensidad ~6 (p6=6) deja el ISBD ~36; intensidad ≥8 (p6≥8) lo lleva
 a 0 ("base caída" por índice).
 

@@ -3,6 +3,11 @@
 Aplicación web para la evaluación del riesgo en la administración de bases de datos
 basada en ISO/IEC 27002 — Proyecto Integrador, Administración de Bases de Datos (EIF402).
 
+> **¿Instalando el proyecto desde cero en una computadora nueva?** Ver
+> [`AGENTS.md`](AGENTS.md): runbook paso a paso (PostgreSQL, backend, frontend
+> y, opcional, Oracle + collector para el monitor en vivo), con los problemas
+> comunes de Windows ya resueltos.
+
 ## Estructura
 
 ```
@@ -34,24 +39,41 @@ cómo correr el demo con stress) está en **`collector/README.md`**.
 ## Crear la base de datos
 
 ```bash
+psql -U postgres -c "CREATE DATABASE cloud_cr;"
 psql -U postgres -d cloud_cr -f database/Modelo_Relacional.sql
-```
-
-```bash
 psql -U postgres -d cloud_cr -f database/Datos_Iniciales.sql
 ```
 
 ## Levantar el backend
 
 ```bash
-composer dump-autoload -d backend
+cp backend/config/.env.example backend/config/.env
 ```
 
+Ajustar `DB_USER` / `DB_PASS` en `backend/config/.env` si no son
+`postgres`/`postgres`. Si el archivo no existe se usan esos valores por
+defecto (`app/Core/Config.php`).
+
 ```bash
+composer dump-autoload -d backend
 php -S localhost:8000 -t backend/public
 ```
 
-La referencia de endpoints está en `backend/docs/Api.md`.
+Verificar con `curl http://localhost:8000/salud`. La referencia de endpoints
+está en `backend/docs/Api.md`; detalle de instalación (WAMP, virtual host,
+troubleshooting) en `backend/README.md`.
+
+## Levantar el frontend
+
+```bash
+cp frontend/.env.example frontend/.env
+cd frontend
+npm install
+npm run dev
+```
+
+`VITE_API_URL` en `frontend/.env` debe apuntar al backend
+(`http://localhost:8000` en local).
 
 ## Migraciones
 

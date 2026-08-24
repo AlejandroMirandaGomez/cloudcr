@@ -350,14 +350,19 @@ Datos en vivo de una instancia Oracle. El backend **no se conecta a Oracle**:
 recibe las mediciones que empuja el collector local (ver `collector/README.md`),
 calcula los indicadores y sirve el último estado al dashboard.
 
-Índice: `ISBD = 0.30·IP + 0.35·IM + 0.35·IA`, en escala 0–100.
-Estados: `Verde` (≥ 75), `Amarillo` (≥ 60), `Rojo` (< 60), `Caida` (sin conexión).
+Índice: `ISBD = (IP + IM + IA) / 3`, en escala 0–100.
 
-**Penalización por crítico (weakest-link):** el índice de un componente no
-puede superar el puntaje de su peor variable, y el ISBD no puede superar el de
-su peor componente. En amarillo topa en la banda; en rojo baja hasta el puntaje
-de la peor señal, así la profundidad de la crítica se refleja (una crítica al
-fondo puede llevar el ISBD a 0). Ver `CalculadoraSalud::PENALIZAR_CRITICO`.
+Estados: `Verde` (≥ umbral verde), `Rojo` (≤ umbral rojo), `Amarillo` en medio,
+`Caida` (sin conexión). Los dos umbrales se configuran por base y por índice en
+`Monitor_Umbrales_Indice` (ver `GET/PUT /monitor/umbrales-indice`); sin
+configurar valen 75 y 60.
+
+**Media geométrica ponderada:** aplica a IP/IM/IA, no al ISBD. El índice de un
+componente es la media geométrica de los puntajes de sus variables, ponderada
+por el peso de cada una — no un promedio aritmético. Un puntaje bajo castiga el
+índice en proporción a su propio peso, así una crítica no queda tapada por
+puntajes buenos en otras variables. Ver
+`CalculadoraSalud::indiceComponente`.
 
 Todos los GET aceptan `?baseDatosId=<id>`. Sin ese parámetro usan la primera
 base activa.
@@ -378,29 +383,73 @@ todavía, devuelve `isbd: null` y `estado: "Sin datos"`.
 
 ### `GET /monitor/indice`
 
-Índice del último snapshot, con el desglose por componente y los pesos usados.
+Índice del último snapshot, con el desglose por componente y los umbrales del
+semáforo vigentes para esa base.
 
 ```json
 { "data": {
   "base_datos": { "id": 1, "nombre": "Oracle XE Local", "motor": "Oracle" },
-  "isbd": { "valor": 94.47, "estado": "Verde", "color": "verde",
-            "pesos": { "procesos": 0.3, "memoria": 0.35, "archivos": 0.35 } },
+  "isbd": { "valor": 94.68, "estado": "Verde", "color": "verde",
+            "pesos": { "procesos": 0.333, "memoria": 0.333, "archivos": 0.333 },
+            "umbrales": { "verde": 75, "rojo": 60 } },
   "componentes": {
-    "procesos": { "indicador": "IP", "valor": 98.88, "estado": "Verde", "color": "verde" },
-    "memoria":  { "indicador": "IM", "valor": 85.2,  "estado": "Verde", "color": "verde" },
-    "archivos": { "indicador": "IA", "valor": 99.97, "estado": "Verde", "color": "verde" }
+    "procesos": { "indicador": "IP", "valor": 98.88, "estado": "Verde", "color": "verde",
+                  "umbrales": { "verde": 75, "rojo": 60 } },
+    "memoria":  { "indicador": "IM", "valor": 85.2,  "estado": "Verde", "color": "verde",
+                  "umbrales": { "verde": 75, "rojo": 60 } },
+    "archivos": { "indicador": "IA", "valor": 99.97, "estado": "Verde", "color": "verde",
+                  "umbrales": { "verde": 75, "rojo": 60 } }
+  },
+  "umbrales": {
+    "isbd": { "verde": 75, "rojo": 60 }, "ip": { "verde": 75, "rojo": 60 },
+    "im":   { "verde": 75, "rojo": 60 }, "ia": { "verde": 75, "rojo": 60 }
   },
   "actualizado_en": "2026-08-23 16:12:04", "simulado": false
 } }
 ```
 
+`pesos` quedó como rastro histórico: el ISBD ya no pondera, es el promedio simple.
+
 **404** si la base existe pero todavía no tiene mediciones.
+
+### `GET /monitor/umbrales-indice`
+
+Umbrales del semáforo de los cuatro índices de una base. Los que no se hayan
+personalizado salen con el valor por defecto (verde 75 / rojo 60).
+
+```json
+{ "data": {
+  "base_datos": { "id": 1, "nombre": "Oracle XE Local" },
+  "umbrales": {
+    "isbd": { "verde": 80, "rojo": 55 }, "ip": { "verde": 75, "rojo": 60 },
+    "im":   { "verde": 75, "rojo": 60 }, "ia": { "verde": 75, "rojo": 60 }
+  }
+} }
+```
+
+### `PUT /monitor/umbrales-indice`
+
+Guarda los cuatro pares. Es lo que persiste el botón "Editar parámetros" del
+dashboard. Devuelve el mismo cuerpo que el GET.
+
+```json
+{
+  "baseDatosId": 1,
+  "umbrales": {
+    "isbd": { "verde": 80, "rojo": 55 }, "ip": { "verde": 75, "rojo": 60 },
+    "im":   { "verde": 75, "rojo": 60 }, "ia": { "verde": 75, "rojo": 60 }
+  }
+}
+```
+
+**422** si falta un índice, si un umbral cae fuera de 0–100 o si el rojo no es
+menor que el verde.
 
 ### `GET /monitor/alertas`
 
 Alertas del último snapshot, críticas primero. Se sirven aparte del índice a
 propósito: una alerta crítica individual no debe quedar oculta detrás de un
-promedio ponderado alto.
+promedio alto.
 
 ```json
 { "data": [ {

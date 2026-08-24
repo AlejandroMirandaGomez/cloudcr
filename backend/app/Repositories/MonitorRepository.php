@@ -47,8 +47,11 @@ final class MonitorRepository extends BaseRepository
         $sql = sprintf(
             'SELECT b.id, b.nombre, b.motor, b.host, b.puerto, b.servicio,
                     b.caida, b.caida_motivo,
-                    s.isbd, %s AS actualizado_en
+                    s.isbd, %s AS actualizado_en,
+                    u.umbral_verde, u.umbral_rojo
              FROM Monitor_Bases_Datos b
+             LEFT JOIN Monitor_Umbrales_Indice u
+                    ON u.base_datos_id = b.id AND u.indice = CAST(:indice AS monitor_indice)
              LEFT JOIN LATERAL (
                  SELECT isbd, capturado_en
                  FROM Monitor_Snapshots
@@ -61,7 +64,7 @@ final class MonitorRepository extends BaseRepository
             sprintf(self::FECHA, 's.capturado_en')
         );
 
-        $filas = $this->run($sql)->fetchAll();
+        $filas = $this->run($sql, ['indice' => 'isbd'])->fetchAll();
 
         return array_map(static function (array $fila): array {
             $isbd = $fila['isbd'] === null ? null : (float) $fila['isbd'];
@@ -71,7 +74,7 @@ final class MonitorRepository extends BaseRepository
             $estado = match (true) {
                 (bool) $fila['caida'] => ['nombre' => 'Caida', 'color' => 'caida'],
                 $isbd === null        => ['nombre' => 'Sin datos', 'color' => 'gris'],
-                default               => CalculadoraSalud::estadoDeIndice($isbd),
+                default               => CalculadoraSalud::estadoDeIndice($isbd, self::umbralesDeFila($fila)),
             };
 
             return [
@@ -140,21 +143,25 @@ final class MonitorRepository extends BaseRepository
             );
         }
 
+        $umbrales    = $this->umbralesDeBase($base['id']);
         $componentes = [];
+
         foreach (CalculadoraSalud::COMPONENTES as $componente) {
+            $clave  = CalculadoraSalud::CLAVES_INDICE[$componente];
             $valor  = (float) $snapshot[self::columnaIndice($componente)];
-            $estado = CalculadoraSalud::estadoDeIndice($valor);
+            $estado = CalculadoraSalud::estadoDeIndice($valor, $umbrales[$clave]);
 
             $componentes[$componente] = [
                 'indicador' => CalculadoraSalud::INDICADORES[$componente],
                 'valor'     => $valor,
                 'estado'    => $estado['nombre'],
                 'color'     => $estado['color'],
+                'umbrales'  => $umbrales[$clave],
             ];
         }
 
         $isbd   = (float) $snapshot['isbd'];
-        $estado = CalculadoraSalud::estadoDeIndice($isbd);
+        $estado = CalculadoraSalud::estadoDeIndice($isbd, $umbrales['isbd']);
 
         return [
             'base_datos' => [
@@ -173,8 +180,10 @@ final class MonitorRepository extends BaseRepository
                     'memoria'  => (float) $snapshot['peso_memoria'],
                     'archivos' => (float) $snapshot['peso_archivos'],
                 ],
+                'umbrales' => $umbrales['isbd'],
             ],
             'componentes'    => $componentes,
+            'umbrales'       => $umbrales,
             'actualizado_en' => $snapshot['capturado_en'],
             'simulado'       => false,
         ];
@@ -271,10 +280,17 @@ final class MonitorRepository extends BaseRepository
             $params['componente'] = $componente;
         }
 
+        $params['base'] = $base['id'];
+
         $sql = 'SELECT v.codigo, v.componente, v.orden, v.variable, v.descripcion, v.fuente,
-                       v.unidad, v.sentido, v.limite_advertencia, v.limite_critico, v.peso,
-                       v.justificacion, m.valor
+                       v.unidad, v.sentido, v.justificacion, v.penaliza, m.valor,
+                       COALESCE(a.limite_advertencia, v.limite_advertencia) AS limite_advertencia,
+                       COALESCE(a.limite_critico, v.limite_critico)         AS limite_critico,
+                       COALESCE(a.peso, v.peso)                             AS peso,
+                       (a.id IS NOT NULL)                                   AS ajustada
                 FROM Monitor_Variables v
+                LEFT JOIN Monitor_Ajustes_Variable a
+                       ON a.variable_codigo = v.codigo AND a.base_datos_id = :base
                 LEFT JOIN Monitor_Mediciones m
                        ON m.variable_codigo = v.codigo AND m.snapshot_id = :snapshot'
             . $filtro
@@ -302,7 +318,11 @@ final class MonitorRepository extends BaseRepository
                 'sentido'            => $f['sentido'],
                 'limite_advertencia' => $definicion['limite_advertencia'],
                 'limite_critico'     => $definicion['limite_critico'],
+                'umbral_verde'       => $definicion['limite_advertencia'],
+                'umbral_rojo'        => $definicion['limite_critico'],
                 'peso'               => (float) $f['peso'],
+                'penaliza'           => (bool) $f['penaliza'],
+                'ajustada'           => (bool) $f['ajustada'],
                 'justificacion'      => $f['justificacion'],
                 'valor'              => $valor,
                 'puntaje'            => $puntaje,
@@ -310,6 +330,216 @@ final class MonitorRepository extends BaseRepository
                 'estado'             => $color === null ? null : ucfirst($color),
             ];
         }, $this->run($sql, $params)->fetchAll());
+    }
+
+    // --------------------------------------------------------------- ajustes
+
+    /**
+     * Umbrales del semaforo de los cuatro indices (ISBD, IP, IM, IA) de una
+     * base. Los que la base no haya personalizado salen con el valor por
+     * defecto (verde 75 / rojo 60).
+     */
+    public function umbralesIndice(?string $baseDatosId = null): array
+    {
+        $base = $this->baseDatos($baseDatosId);
+
+        return [
+            'base_datos' => ['id' => $base['id'], 'nombre' => $base['nombre']],
+            'umbrales'   => $this->umbralesDeBase($base['id']),
+        ];
+    }
+
+    /**
+     * Guarda los umbrales de los cuatro indices de una base.
+     *
+     * Formato esperado en $umbrales:
+     *   {"isbd": {"verde": 80, "rojo": 55}, "ip": {...}, "im": {...}, "ia": {...}}
+     *
+     * @param array<string,mixed> $umbrales
+     */
+    public function guardarUmbralesIndice(?string $baseDatosId, array $umbrales): array
+    {
+        $base    = $this->baseDatos($baseDatosId);
+        $errores = [];
+        $limpios = [];
+
+        foreach (CalculadoraSalud::INDICES_CONFIGURABLES as $indice) {
+            $entrada = $umbrales[$indice] ?? null;
+
+            if (!is_array($entrada)) {
+                $errores["umbrales.$indice"] = 'Es obligatorio.';
+                continue;
+            }
+
+            $verde = $entrada['verde'] ?? null;
+            $rojo  = $entrada['rojo'] ?? null;
+
+            if (!is_numeric($verde) || !is_numeric($rojo)) {
+                $errores["umbrales.$indice"] = 'Indique el umbral verde y el umbral rojo.';
+                continue;
+            }
+
+            $verde = round((float) $verde, 2);
+            $rojo  = round((float) $rojo, 2);
+
+            if ($verde < 0 || $verde > 100 || $rojo < 0 || $rojo > 100) {
+                $errores["umbrales.$indice"] = 'Los umbrales van de 0 a 100.';
+                continue;
+            }
+            if ($rojo >= $verde) {
+                $errores["umbrales.$indice"] = 'El umbral rojo debe ser menor que el verde.';
+                continue;
+            }
+
+            $limpios[$indice] = ['verde' => $verde, 'rojo' => $rojo];
+        }
+
+        if ($errores !== []) {
+            throw HttpException::validacion($errores);
+        }
+
+        Database::transaction(function (PDO $pdo) use ($base, $limpios): void {
+            foreach ($limpios as $indice => $valores) {
+                $this->run(
+                    'INSERT INTO Monitor_Umbrales_Indice
+                         (base_datos_id, indice, umbral_verde, umbral_rojo)
+                     VALUES (:base, CAST(:indice AS monitor_indice), :verde, :rojo)
+                     ON CONFLICT (base_datos_id, indice) DO UPDATE SET
+                         umbral_verde   = EXCLUDED.umbral_verde,
+                         umbral_rojo    = EXCLUDED.umbral_rojo,
+                         actualizado_en = now()',
+                    [
+                        'base'   => $base['id'],
+                        'indice' => $indice,
+                        'verde'  => $valores['verde'],
+                        'rojo'   => $valores['rojo'],
+                    ]
+                );
+            }
+        });
+
+        return [
+            'base_datos' => ['id' => $base['id'], 'nombre' => $base['nombre']],
+            'umbrales'   => $this->umbralesDeBase($base['id']),
+        ];
+    }
+
+    /**
+     * Guarda los umbrales y pesos de un componente para UNA base de datos.
+     * Se recibe el componente completo porque editar el peso de una variable
+     * redistribuye el de las demas: guardarlas de a una dejaria sumas invalidas.
+     *
+     * @param list<array<string,mixed>> $variables
+     */
+    public function guardarAjustes(?string $baseDatosId, string $componente, array $variables): array
+    {
+        if (!in_array($componente, CalculadoraSalud::COMPONENTES, true)) {
+            throw HttpException::validacion(['componente' => 'Debe ser procesos, memoria o archivos.']);
+        }
+
+        $base     = $this->baseDatos($baseDatosId);
+        $catalogo = $this->catalogo();
+        $esperados = array_keys(array_filter(
+            $catalogo,
+            static fn(array $d): bool => $d['componente'] === $componente
+        ));
+
+        $errores = [];
+        $ajustes = [];
+        $suma    = 0.0;
+
+        foreach ($variables as $i => $v) {
+            $codigo = is_array($v) ? ($v['codigo'] ?? null) : null;
+
+            if (!is_string($codigo) || !isset($catalogo[$codigo])) {
+                $errores["variables.$i.codigo"] = 'No existe esa variable en Monitor_Variables.';
+                continue;
+            }
+            if ($catalogo[$codigo]['componente'] !== $componente) {
+                $errores["variables.$i.codigo"] = sprintf('La variable %s no pertenece a %s.', $codigo, $componente);
+                continue;
+            }
+            if (isset($ajustes[$codigo])) {
+                $errores["variables.$i.codigo"] = sprintf('La variable %s viene repetida.', $codigo);
+                continue;
+            }
+
+            $peso = $v['peso'] ?? null;
+            if (!is_numeric($peso) || (float) $peso <= 0 || (float) $peso > 100) {
+                $errores["variables.$i.peso"] = 'El peso debe ser un numero mayor a 0 y menor o igual a 100.';
+                continue;
+            }
+
+            $esFijo = $catalogo[$codigo]['sentido'] === 'fijo';
+            $verde  = $v['umbralVerde'] ?? null;
+            $rojo   = $v['umbralRojo'] ?? null;
+
+            if ($esFijo) {
+                $verde = null;
+                $rojo  = null;
+            } else {
+                if (!is_numeric($verde) || !is_numeric($rojo)) {
+                    $errores["variables.$i.umbrales"] = 'Indique el umbral verde y el umbral rojo.';
+                    continue;
+                }
+                if ((float) $verde === (float) $rojo) {
+                    $errores["variables.$i.umbrales"] = 'El umbral verde y el rojo deben ser distintos.';
+                    continue;
+                }
+                $verde = round((float) $verde, 2);
+                $rojo  = round((float) $rojo, 2);
+            }
+
+            $ajustes[$codigo] = [
+                'codigo' => $codigo,
+                'verde'  => $verde,
+                'rojo'   => $rojo,
+                'peso'   => round((float) $peso, 2),
+            ];
+            $suma += $ajustes[$codigo]['peso'];
+        }
+
+        $faltantes = array_diff($esperados, array_keys($ajustes));
+        if ($errores === [] && $faltantes !== []) {
+            $errores['variables'] = sprintf(
+                'Faltan variables del componente: %s.',
+                implode(', ', $faltantes)
+            );
+        }
+
+        // Tolerancia de un centesimo por variable: los pesos se redondean a dos
+        // decimales en el frontend y la suma puede quedar en 99.99 o 100.01.
+        if ($errores === [] && abs($suma - 100.0) > 0.01 * max(count($ajustes), 1)) {
+            $errores['variables'] = sprintf('Los pesos del componente deben sumar 100 (suman %.2f).', $suma);
+        }
+
+        if ($errores !== []) {
+            throw HttpException::validacion($errores);
+        }
+
+        Database::transaction(function (PDO $pdo) use ($base, $ajustes): void {
+            foreach ($ajustes as $ajuste) {
+                $this->run(
+                    'INSERT INTO Monitor_Ajustes_Variable
+                         (base_datos_id, variable_codigo, limite_advertencia, limite_critico, peso)
+                     VALUES (:base, :codigo, :verde, :rojo, :peso)
+                     ON CONFLICT (base_datos_id, variable_codigo) DO UPDATE SET
+                         limite_advertencia = EXCLUDED.limite_advertencia,
+                         limite_critico     = EXCLUDED.limite_critico,
+                         peso               = EXCLUDED.peso,
+                         actualizado_en     = now()',
+                    [
+                        'base'   => $base['id'],
+                        'codigo' => $ajuste['codigo'],
+                        'verde'  => $ajuste['verde'],
+                        'rojo'   => $ajuste['rojo'],
+                        'peso'   => $ajuste['peso'],
+                    ]
+                );
+            }
+        });
+
+        return $this->variables((string) $base['id'], $componente);
     }
 
     // ---------------------------------------------------------------- ingesta
@@ -327,14 +557,14 @@ final class MonitorRepository extends BaseRepository
      */
     public function registrarSnapshot(array $payload): array
     {
-        $catalogo = $this->catalogo();
-        $medidas  = $this->normalizarMediciones($payload['mediciones'], $catalogo);
-
-        [$indices, $alertas] = $this->evaluar($medidas, $catalogo);
-        $isbd = CalculadoraSalud::isbd($indices);
-
-        return Database::transaction(function (PDO $pdo) use ($payload, $medidas, $indices, $isbd, $alertas): array {
+        return Database::transaction(function (PDO $pdo) use ($payload): array {
             $baseId = $this->registrarBaseDatos($payload['base_datos']);
+
+            $catalogo = $this->catalogo($baseId);
+            $medidas  = $this->normalizarMediciones($payload['mediciones'], $catalogo);
+
+            [$indices, $alertas] = $this->evaluar($medidas, $catalogo);
+            $isbd = CalculadoraSalud::isbd($indices);
 
             $snapshotId = (int) $this->run(
                 'INSERT INTO Monitor_Snapshots
@@ -369,13 +599,56 @@ final class MonitorRepository extends BaseRepository
 
     // ----------------------------------------------------------------- ayuda
 
+    /**
+     * @return array<string,array{verde:float,rojo:float}>
+     */
+    private function umbralesDeBase(int $baseDatosId): array
+    {
+        $umbrales = CalculadoraSalud::UMBRALES_INDICE_POR_DEFECTO;
+
+        $filas = $this->run(
+            'SELECT indice, umbral_verde, umbral_rojo
+             FROM Monitor_Umbrales_Indice
+             WHERE base_datos_id = :base',
+            ['base' => $baseDatosId]
+        )->fetchAll();
+
+        foreach ($filas as $fila) {
+            $umbrales[$fila['indice']] = [
+                'verde' => (float) $fila['umbral_verde'],
+                'rojo'  => (float) $fila['umbral_rojo'],
+            ];
+        }
+
+        return $umbrales;
+    }
+
+    /**
+     * @param array<string,mixed> $fila
+     * @return array{verde:float,rojo:float}
+     */
+    private static function umbralesDeFila(array $fila): array
+    {
+        $defecto = CalculadoraSalud::UMBRALES_INDICE_POR_DEFECTO['isbd'];
+
+        return [
+            'verde' => $fila['umbral_verde'] === null ? $defecto['verde'] : (float) $fila['umbral_verde'],
+            'rojo'  => $fila['umbral_rojo'] === null ? $defecto['rojo'] : (float) $fila['umbral_rojo'],
+        ];
+    }
+
     /** @return array<string,array<string,mixed>> codigo => definicion */
-    private function catalogo(): array
+    private function catalogo(?int $baseDatosId = null): array
     {
         $filas = $this->run(
-            'SELECT codigo, componente, variable, unidad, sentido,
-                    limite_advertencia, limite_critico, peso, penaliza
-             FROM Monitor_Variables'
+            'SELECT v.codigo, v.componente, v.variable, v.unidad, v.sentido, v.penaliza,
+                    COALESCE(a.limite_advertencia, v.limite_advertencia) AS limite_advertencia,
+                    COALESCE(a.limite_critico, v.limite_critico)         AS limite_critico,
+                    COALESCE(a.peso, v.peso)                             AS peso
+             FROM Monitor_Variables v
+             LEFT JOIN Monitor_Ajustes_Variable a
+                    ON a.variable_codigo = v.codigo AND a.base_datos_id = :base',
+            ['base' => $baseDatosId]
         )->fetchAll();
 
         if ($filas === []) {
@@ -477,9 +750,8 @@ final class MonitorRepository extends BaseRepository
             $penaliza   = $definicion['penaliza'];
 
             $porComponente[$definicion['componente']][] = [
-                'peso'     => $definicion['peso'],
-                'puntaje'  => $puntaje,
-                'penaliza' => $penaliza,
+                'peso'    => $definicion['peso'],
+                'puntaje' => $puntaje,
             ];
 
             $color     = CalculadoraSalud::colorDeVariable($definicion, $valor);

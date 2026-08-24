@@ -46,11 +46,12 @@ componentes — Procesos, Memoria, Archivos — cada uno con su propio
 indicador (IP, IM, IA), combinados en un índice único:
 
 ```
-ISBD = Wp·IP + Wm·IM + Wa·IA      (pesos iniciales propuestos: 30% / 35% / 35%)
+ISBD = (IP + IM + IA) / 3
 ```
 
 Con una escala 0–100 y estados: Óptimo, Saludable, Advertencia, Degradado,
-Crítico. El sistema también debe generar alertas por componente y guardar
+Crítico. El documento del profesor proponía pesos 30/35/35; el equipo decidió
+usar el promedio simple para que el número sea directamente legible. El sistema también debe generar alertas por componente y guardar
 histórico para graficar evolución.
 
 ### Arquitectura del monitor (resuelto)
@@ -75,13 +76,25 @@ puede alcanzar `localhost`, asi que la conexion va al reves:
 - `agente_local/` es la pagina local para registrar la base y disparar el stress
   del demo. No se deploya.
 
-**Penalizacion por critico (ISBD).** El indice de cada componente es el
-promedio ponderado de sus variables, pero ademas NO puede quedar en mejor banda
-que su peor variable: una variable roja topa el componente en rojo, y un
-componente rojo topa el ISBD en rojo (ver `CalculadoraSalud::PENALIZAR_CRITICO`).
-Asi una alerta critica individual se refleja en el indice global en vez de
-diluirse en el promedio -- la regla del documento del profesor, aplicada tambien
-al numero, no solo al panel de alertas.
+**Media geometrica ponderada (IP/IM/IA).** El indice de cada componente es la
+media geometrica de los puntajes de sus variables, ponderada por el peso de
+cada una (`CalculadoraSalud::indiceComponente`). A diferencia de un promedio
+aritmetico, la geometrica es parcialmente no-compensatoria: un puntaje bajo
+castiga el indice en proporcion a su propio peso, sin que puntajes buenos en
+otras variables lo tapen -- asi una alerta critica individual se refleja en el
+indicador en vez de diluirse en el promedio, la regla del documento del
+profesor, aplicada tambien al numero, no solo al panel de alertas. Mismo
+criterio que uso el PNUD al pasar el IDH de media aritmetica a geometrica en
+2010. El ISBD, en cambio, sigue siendo el promedio simple de los tres
+componentes, sin este ajuste.
+
+**Umbrales del semaforo configurables.** El color de los cuatro indices (ISBD,
+IP, IM, IA) no usa cortes fijos: cada base guarda su par verde/rojo en
+`Monitor_Umbrales_Indice` (migracion `0010`), editable desde el boton "Editar
+parametros" del dashboard. Se lee igual que una variable `alto_bueno`: verde
+desde el umbral verde hacia arriba, rojo desde el umbral rojo hacia abajo,
+amarillo en medio. Por defecto 75 / 60. Solo afecta el color, nunca el valor
+calculado.
 
 **Estado "caida".** Cuando el collector no puede leer una instancia avisa por
 `POST /monitor/estado-caida` y el dashboard la marca como caida (negro) en vez de

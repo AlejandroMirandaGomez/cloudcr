@@ -23,12 +23,22 @@ const leerDelStore = (componenteId) => ({
   preferencia: getPreferenciaPesos(componenteId),
 });
 
-export default function usePesosEditables(componenteId) {
+export default function usePesosEditables(componenteId, ajustes = null) {
   const componente = getComponente(componenteId);
+  const version = ajustes?.version ?? 0;
 
   const [guardado, setGuardado] = useState(() => leerDelStore(componenteId));
   const [borrador, setBorrador] = useState(null);
   const [aviso, setAviso] = useState('');
+
+  const [clave, setClave] = useState(`${componenteId}:${version}`);
+  const claveActual = `${componenteId}:${version}`;
+
+  if (clave !== claveActual) {
+    setClave(claveActual);
+    setGuardado(leerDelStore(componenteId));
+    setBorrador(null);
+  }
 
   const editando = borrador !== null;
   const modo = borrador?.modo ?? guardado.preferencia.modo;
@@ -73,22 +83,22 @@ export default function usePesosEditables(componenteId) {
     setAviso('');
   }, []);
 
-  const guardar = useCallback(() => {
+  const guardar = useCallback(async () => {
     if (!borrador) return;
 
-    const finales = borrador.modo === MODO_PESOS_RELATIVOS
-      ? convertirModo2AModo1(borrador.pesos)
-      : borrador.pesos;
+    const porcentajesExactos = convertirModo2AModo1(borrador.pesos);
 
-    actualizarPesos(componenteId, finales, {
-      modo: borrador.modo,
-      bloqueados: borrador.modo === MODO_PORCENTAJE_EXACTO ? borrador.bloqueados : [],
+    actualizarPesos(componenteId, porcentajesExactos, {
+      modo: MODO_PORCENTAJE_EXACTO,
+      bloqueados: [],
     });
 
     setBorrador(null);
     setAviso('');
     setGuardado(leerDelStore(componenteId));
-  }, [borrador, componenteId]);
+
+    if (ajustes?.persistir) await ajustes.persistir();
+  }, [borrador, componenteId, ajustes]);
 
   const cambiarModo = useCallback((nuevoModo) => {
     if (!nuevoModo) return;
@@ -151,16 +161,17 @@ export default function usePesosEditables(componenteId) {
     });
   }, []);
 
-  const restablecerEquitativo = useCallback(() => {
+  const restablecerEquitativo = useCallback(async () => {
     setAviso('');
 
     if (!borrador) {
       const equitativos = distribuirEquitativo(guardado.pesos.map((p) => p.id));
       actualizarPesos(componenteId, equitativos, {
-        modo: guardado.preferencia.modo,
+        modo: MODO_PORCENTAJE_EXACTO,
         bloqueados: [],
       });
       setGuardado(leerDelStore(componenteId));
+      if (ajustes?.persistir) await ajustes.persistir();
       return;
     }
 
@@ -169,7 +180,7 @@ export default function usePesosEditables(componenteId) {
       pesos: distribuirEquitativo(actual.pesos.map((p) => p.id)),
       bloqueados: [],
     }));
-  }, [borrador, componenteId, guardado]);
+  }, [borrador, componenteId, guardado, ajustes]);
 
   const maximoPara = useCallback(
     (id) => (modo === MODO_PORCENTAJE_EXACTO ? maxEditable({ pesos, bloqueados, id }) : 100),

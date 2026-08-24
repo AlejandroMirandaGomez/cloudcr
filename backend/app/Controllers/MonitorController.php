@@ -53,6 +53,70 @@ final class MonitorController extends BaseController
     }
 
     /**
+     * Guarda umbrales y pesos de un componente para una base concreta.
+     *
+     * Cuerpo esperado:
+     *   {
+     *     "baseDatosId": 1,
+     *     "componente": "memoria",
+     *     "variables": [{"codigo": "m2", "umbralVerde": 4, "umbralRojo": 2, "peso": 11.11}, ...]
+     *   }
+     */
+    public function guardarAjustes(Request $r): void
+    {
+        $body = $r->body();
+
+        $componente = $body['componente'] ?? null;
+        $variables  = $body['variables'] ?? null;
+
+        if (!is_string($componente) || $componente === '') {
+            throw HttpException::validacion(['componente' => 'Es obligatorio.']);
+        }
+        if (!is_array($variables) || $variables === []) {
+            throw HttpException::validacion(['variables' => 'Es obligatorio y debe traer al menos una variable.']);
+        }
+
+        $baseDatosId = $body['baseDatosId'] ?? null;
+        $baseDatosId = $baseDatosId === null ? null : (string) $baseDatosId;
+
+        Response::ok($this->repo->guardarAjustes($baseDatosId, $componente, array_values($variables)));
+    }
+
+    public function umbralesIndice(Request $r): void
+    {
+        Response::ok($this->repo->umbralesIndice($r->query('baseDatosId')));
+    }
+
+    /**
+     * Guarda los umbrales del semaforo de los cuatro indices de una base.
+     *
+     * Cuerpo esperado:
+     *   {
+     *     "baseDatosId": 1,
+     *     "umbrales": {
+     *       "isbd": {"verde": 80, "rojo": 55},
+     *       "ip":   {"verde": 75, "rojo": 60},
+     *       "im":   {"verde": 75, "rojo": 60},
+     *       "ia":   {"verde": 75, "rojo": 60}
+     *     }
+     *   }
+     */
+    public function guardarUmbralesIndice(Request $r): void
+    {
+        $body     = $r->body();
+        $umbrales = $body['umbrales'] ?? null;
+
+        if (!is_array($umbrales) || $umbrales === []) {
+            throw HttpException::validacion(['umbrales' => 'Es obligatorio.']);
+        }
+
+        $baseDatosId = $body['baseDatosId'] ?? null;
+        $baseDatosId = $baseDatosId === null ? null : (string) $baseDatosId;
+
+        Response::ok($this->repo->guardarUmbralesIndice($baseDatosId, $umbrales));
+    }
+
+    /**
      * Recibe un snapshot del collector local. Protegido con el secreto
      * compartido X-Collector-Token (ver AutenticacionCollector).
      *

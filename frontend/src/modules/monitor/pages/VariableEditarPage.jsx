@@ -22,6 +22,16 @@ import {
   maxEditable,
   porcentajesDesdeModo2,
 } from '../lib/pesos.js';
+import { describirUmbrales } from '../lib/estadoVariable.js';
+import { dominioParaEdicion, formatearNumero } from '../lib/escalaUmbrales.js';
+import EscalaUmbrales from '../components/EscalaUmbrales.jsx';
+import useAjustesVariables from '../hooks/useAjustesVariables.js';
+
+const aNumero = (texto) => {
+  if (texto === '' || texto === null || texto === undefined) return null;
+  const numero = Number(texto);
+  return Number.isNaN(numero) ? null : numero;
+};
 
 export default function VariableEditarPage() {
   const { baseDatosId, componente: componenteId, variableId } = useParams();
@@ -29,16 +39,49 @@ export default function VariableEditarPage() {
   const componente = getComponente(componenteId);
   const variable = getVariable(componenteId, variableId);
   const detalleTo = `/monitor/${baseDatosId}/${componenteId}/${variableId}`;
-  const esFijo = variable?.sentido === 'fijo';
+  const esConfiguracion = variable?.esConfiguracion === true;
+
+  const ajustes = useAjustesVariables(baseDatosId, componenteId);
 
   const preferencia = getPreferenciaPesos(componenteId);
-  const pesosActuales = useMemo(() => getPesos(componenteId), [componenteId]);
+  const pesosActuales = getPesos(componenteId);
   const esRelativo = preferencia.modo === MODO_PESOS_RELATIVOS;
 
-  const [limiteAdvertencia, setLimiteAdvertencia] = useState(variable?.limiteAdvertencia ?? '');
-  const [limiteCritico, setLimiteCritico] = useState(variable?.limiteCritico ?? '');
+  const [umbralVerde, setUmbralVerde] = useState(variable?.umbralVerde ?? '');
+  const [umbralRojo, setUmbralRojo] = useState(variable?.umbralRojo ?? '');
   const [peso, setPeso] = useState(variable?.peso ?? '');
   const [error, setError] = useState('');
+  const [versionCargada, setVersionCargada] = useState(0);
+
+  if (variable && versionCargada !== ajustes.version) {
+    setVersionCargada(ajustes.version);
+    setUmbralVerde(variable.umbralVerde ?? '');
+    setUmbralRojo(variable.umbralRojo ?? '');
+    setPeso(variable.peso ?? '');
+  }
+
+  const escalaUmbrales = useMemo(
+    () => describirUmbrales({
+      umbralVerde: aNumero(umbralVerde),
+      umbralRojo: aNumero(umbralRojo),
+      unidad: variable?.unidad,
+    }),
+    [umbralVerde, umbralRojo, variable],
+  );
+
+  const dominioUmbrales = useMemo(
+    () => dominioParaEdicion(
+      { verde: variable?.umbralVerde, rojo: variable?.umbralRojo },
+      { verde: aNumero(umbralVerde), rojo: aNumero(umbralRojo) },
+      variable?.unidad,
+    ),
+    [variable, umbralVerde, umbralRojo],
+  );
+
+  const arrastrarUmbrales = ({ verde, rojo }) => {
+    setUmbralVerde(formatearNumero(verde));
+    setUmbralRojo(formatearNumero(rojo));
+  };
 
   const maximoPeso = useMemo(() => {
     if (!variable) return PESO_MAXIMO_RELATIVO;
@@ -81,23 +124,19 @@ export default function VariableEditarPage() {
     );
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!esFijo) {
-      const advertencia = Number(limiteAdvertencia);
-      const critico = Number(limiteCritico);
+    const verde = aNumero(umbralVerde);
+    const rojo = aNumero(umbralRojo);
 
-      if (limiteAdvertencia === '' || limiteCritico === '' || Number.isNaN(advertencia) || Number.isNaN(critico)) {
-        setError('Ingrese ambos umbrales.');
+    if (!esConfiguracion) {
+      if (verde === null || rojo === null) {
+        setError('Ingrese ambos umbrales: el valor Verde y el valor Rojo.');
         return;
       }
-      if (variable.sentido === 'alto_malo' && critico < advertencia) {
-        setError('El umbral crítico debe ser mayor o igual al umbral de advertencia.');
-        return;
-      }
-      if (variable.sentido === 'alto_bueno' && critico > advertencia) {
-        setError('El umbral crítico debe ser menor o igual al umbral de advertencia.');
+      if (verde === rojo) {
+        setError('El umbral Verde y el umbral Rojo deben ser distintos.');
         return;
       }
     }
@@ -117,8 +156,8 @@ export default function VariableEditarPage() {
       return;
     }
 
-    if (!esFijo) {
-      actualizarUmbrales(componenteId, variableId, Number(limiteAdvertencia), Number(limiteCritico));
+    if (!esConfiguracion) {
+      actualizarUmbrales(componenteId, variableId, verde, rojo);
     }
 
     const pesosNuevos = esRelativo
@@ -131,6 +170,14 @@ export default function VariableEditarPage() {
       });
 
     actualizarPesos(componenteId, pesosNuevos, preferencia);
+
+    const guardado = await ajustes.persistir();
+
+    if (!guardado.ok) {
+      setError(guardado.error || 'No se pudieron guardar los cambios.');
+      return;
+    }
+
     navigate(detalleTo, { replace: true });
   };
 
@@ -155,10 +202,10 @@ export default function VariableEditarPage() {
         )}
 
         <Box component="form" onSubmit={handleSubmit}>
-          {esFijo ? (
+          {esConfiguracion ? (
             <Alert severity="info" sx={{ mb: 3 }}>
               Esta variable es un dato de configuración (no cambia con la salud del momento), por lo
-              que no tiene umbrales de advertencia/crítico que editar.
+              que no tiene umbrales que editar.
             </Alert>
           ) : (
             <>
@@ -166,33 +213,49 @@ export default function VariableEditarPage() {
                 Umbrales
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-                {variable.sentido === 'alto_malo'
-                  ? 'A partir de qué valor la variable pasa a Amarillo y a Rojo (unidad: '
-                  : 'Por debajo de qué valor la variable pasa a Amarillo y a Rojo (unidad: '}
-                {variable.unidad}).
+                Indique el valor Verde y el valor Rojo (unidad: {variable.unidad}). El orden define la
+                dirección: si el Rojo es mayor que el Verde, los valores altos son peores; si es menor,
+                los valores altos son mejores.
               </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 1.5 }}>
                 <TextField
-                  label="Umbral de advertencia"
+                  label="Umbral Verde"
                   type="number"
-                  required
                   fullWidth
                   size="small"
-                  value={limiteAdvertencia}
-                  onChange={(e) => setLimiteAdvertencia(e.target.value)}
+                  value={umbralVerde}
+                  onChange={(e) => setUmbralVerde(e.target.value)}
                   slotProps={{ htmlInput: { step: 'any' } }}
                 />
                 <TextField
-                  label="Umbral crítico"
+                  label="Umbral Rojo"
                   type="number"
-                  required
                   fullWidth
                   size="small"
-                  value={limiteCritico}
-                  onChange={(e) => setLimiteCritico(e.target.value)}
+                  value={umbralRojo}
+                  onChange={(e) => setUmbralRojo(e.target.value)}
                   slotProps={{ htmlInput: { step: 'any' } }}
                 />
               </Stack>
+              {dominioUmbrales ? (
+                <>
+                  <EscalaUmbrales
+                    umbralVerde={aNumero(umbralVerde)}
+                    umbralRojo={aNumero(umbralRojo)}
+                    unidad={variable.unidad}
+                    dominio={dominioUmbrales}
+                    altoMaloPorDefecto={variable.umbralRojo > variable.umbralVerde}
+                    onCambiar={arrastrarUmbrales}
+                  />
+                  <Alert severity="info" icon={false} sx={{ mt: 1.5, mb: 3 }}>
+                    {escalaUmbrales ?? 'El umbral Verde y el umbral Rojo deben ser distintos: mueva una de las dos marcas.'}
+                  </Alert>
+                </>
+              ) : (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 3 }}>
+                  Complete ambos umbrales, con valores distintos, para ver cómo queda la escala.
+                </Typography>
+              )}
             </>
           )}
 

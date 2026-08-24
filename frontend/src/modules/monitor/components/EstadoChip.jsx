@@ -6,7 +6,7 @@ import { useTheme } from '@mui/material/styles';
  * criterio que SemaforoChip de reporte/: el texto del estado siempre
  * acompana al color, nunca es la unica senal.
  */
-const ESTILO = {
+export const ESTILO_ESTADO = {
   light: {
     verde:     { bg: '#e8f5e9', fg: '#1b5e20', borde: '#a5d6a7' },
     amarillo:  { bg: '#fff8e1', fg: '#7a4f01', borde: '#ffe082' },
@@ -27,7 +27,7 @@ const ESTILO = {
 
 export default function EstadoChip({ color = 'verde', label, size = 'small' }) {
   const { palette } = useTheme();
-  const estilos = ESTILO[palette.mode] ?? ESTILO.light;
+  const estilos = ESTILO_ESTADO[palette.mode] ?? ESTILO_ESTADO.light;
   const estilo = estilos[color] ?? estilos.verde;
   return (
     <Chip

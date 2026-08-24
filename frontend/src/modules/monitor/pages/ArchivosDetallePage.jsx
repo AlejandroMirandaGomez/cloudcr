@@ -7,40 +7,53 @@ import Table from '../../../common/components/basic-table/Table.jsx';
 import VariableRowActionsMenu from '../components/VariableRowActionsMenu.jsx';
 import PesosToolbar from '../components/PesosToolbar.jsx';
 import PesoCell from '../components/PesoCell.jsx';
-import EstadoChip from '../components/EstadoChip.jsx';
+import EstadoChip, { ESTILO_ESTADO } from '../components/EstadoChip.jsx';
 import IndiceComponenteBanner from '../components/IndiceComponenteBanner.jsx';
 import usePesosEditables from '../hooks/usePesosEditables.js';
+import useAjustesVariables from '../hooks/useAjustesVariables.js';
 import useIndiceComponente from '../hooks/useIndiceComponente.js';
+import useUmbralesIndice from '../hooks/useUmbralesIndice.js';
 import useMediciones from '../hooks/useMediciones.js';
-import { estadoDeVariable, formatearValor } from '../lib/estadoVariable.js';
+import { estadoDeVariable, formatearUmbrales, formatearValor } from '../lib/estadoVariable.js';
 
 const COMPONENTE_ID = 'archivos';
 
 export default function ArchivosDetallePage() {
   const { baseDatosId } = useParams();
-  const pesos = usePesosEditables(COMPONENTE_ID);
-  const componente = useIndiceComponente(baseDatosId, COMPONENTE_ID);
+  const ajustes = useAjustesVariables(baseDatosId, COMPONENTE_ID);
+  const pesos = usePesosEditables(COMPONENTE_ID, ajustes);
   // Valores reales del ultimo snapshot del collector, refrescados solos.
   const { mediciones } = useMediciones(baseDatosId, COMPONENTE_ID);
+  const { umbrales } = useUmbralesIndice(baseDatosId);
+  const componente = useIndiceComponente(pesos.filas, mediciones, umbrales.ia);
 
   const columns = useMemo(
     () => [
       { accessorKey: 'variable', header: 'Variable', size: 200 },
       { accessorKey: 'descripcion', header: 'Descripción', size: 220 },
-      {
-        accessorKey: 'dato',
-        header: 'Dato',
-        size: 80,
-        Cell: ({ cell }) => <Chip label={cell.getValue()} size="small" variant="outlined" />,
-      },
       { accessorKey: 'fuente', header: 'Fuente', size: 260 },
       { accessorKey: 'como', header: 'Cómo', size: 90 },
       {
-        id: 'valor',
-        header: 'Valor',
+        id: 'dato',
+        header: 'Dato',
         accessorFn: (row) => estadoDeVariable(row, mediciones).valor,
-        Cell: ({ row }) => formatearValor(estadoDeVariable(row.original, mediciones)),
+        Cell: ({ row }) => {
+          const estado = estadoDeVariable(row.original, mediciones);
+          const texto = formatearValor(estado);
+          if (!estado.color) return texto;
+          return (
+            <Box
+              component="span"
+              sx={{ color: (theme) => ESTILO_ESTADO[theme.palette.mode]?.[estado.color]?.fg }}
+            >
+              {texto}
+            </Box>
+          );
+        },
         size: 110,
+        muiTableHeadCellProps: {
+          sx: { color: (theme) => theme.palette.primary.main },
+        },
       },
       {
         id: 'estado',
@@ -57,6 +70,12 @@ export default function ArchivosDetallePage() {
           return <Chip label={medido ? 'Config' : 'Sin dato'} size="small" variant="outlined" />;
         },
         size: 110,
+      },
+      {
+        id: 'umbrales',
+        header: 'Umbrales',
+        accessorFn: (row) => formatearUmbrales(row),
+        size: 200,
       },
       {
         id: 'peso',
@@ -128,7 +147,7 @@ export default function ArchivosDetallePage() {
           <VariableRowActionsMenu baseDatosId={baseDatosId} componenteId={COMPONENTE_ID} variableId={row.original.id} />
         )}
         tableOptions={{
-          displayColumnDefOptions: { 'mrt-row-actions': { header: 'Acciones', size: 90 } },
+          displayColumnDefOptions: { 'mrt-row-actions': { header: 'Ver Detalle', size: 90 } },
         }}
       />
     </Box>

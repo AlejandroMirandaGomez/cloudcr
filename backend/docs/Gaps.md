@@ -179,22 +179,32 @@ variables. El backend es la fuente de verdad para el calculo de indices y alerta
 del frontend quedo solo para la interfaz de **pesos y umbrales editables**, que hoy es estado
 del cliente y se pierde al recargar.
 
+El **color por variable** que muestran las tablas de detalle lo calcula el frontend contra sus
+propios umbrales (`lib/estadoVariable.js`), para que editar un umbral se vea reflejado de
+inmediato. Los **indices (IP/IM/IA/ISBD) y las alertas** los sigue calculando el backend contra
+`Monitor_Variables`. Ambos lados aplican la misma regla (ver `CalculadoraSalud::colorDeVariable`),
+pero si el usuario edita un umbral en pantalla, la tabla cambia de color y el indice del banner
+no: esa es la inconsistencia que queda pendiente.
+
 Para unificarlas hace falta persistir esa edicion:
 
 ```
 PUT /monitor/variables/{codigo}     -> umbrales y peso
 ```
 
-con su validacion (los pesos de un componente deben sumar 100) y control de rol. Mientras eso
-no exista, cambiar un umbral en la pantalla no afecta las alertas que genera el backend, que es
-una inconsistencia visible para el usuario.
+con su validacion (los pesos de un componente deben sumar 100) y control de rol.
+
+Mientras tanto, los umbrales de los dos lados deben mantenerse sincronizados a mano: las
+recalibraciones de las migraciones `0005` (m4) y `0006` (m2) ya estan replicadas en
+`variablesMonitor.js`.
 
 ### Pesos del ISBD fijos en codigo
 
-`Wp/Wm/Wa` (30/35/35) estan como constante en `Monitor/CalculadoraSalud.php` y se guardan en
-cada snapshot para dejar rastro de con que pesos se calculo. No hay forma de cambiarlos sin
-tocar codigo. Si el profesor define otros pesos, conviene una tabla de configuracion o al menos
-variables de entorno.
+El ISBD es el promedio simple `(IP + IM + IA) / 3`. Las columnas `peso_procesos/memoria/archivos`
+de `Monitor_Snapshots` quedaron como rastro historico y hoy guardan 1/3 cada una. Si el profesor
+pide volver a ponderar por componente, hay que reintroducir los pesos en
+`Monitor/CalculadoraSalud.php` o, mejor, guardarlos por base como ya se hace con
+`Monitor_Umbrales_Indice`.
 
 ### Retencion del historico
 

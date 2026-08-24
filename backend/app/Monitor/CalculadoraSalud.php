@@ -9,18 +9,15 @@ namespace CloudCR\Monitor;
  * recibe las definiciones de variables (Monitor_Variables) y los valores
  * medidos por el collector, y devuelve puntajes, indices, estados y alertas.
  *
- * Formula del documento del profesor:
+ *     ISBD = (IP + IM + IA) / 3
  *
- *     ISBD = Wp*IP + Wm*IM + Wa*IA      (pesos 30% / 35% / 35%)
+ * Cada componente (IP/IM/IA) es la media geometrica ponderada de los puntajes
+ * 0-100 de sus variables. El puntaje traduce el valor crudo a la escala 0-100
+ * usando las bandas fijas 100..75 (verde), 75..60 (amarillo) y 60..0 (rojo).
  *
- * Cada componente (IP/IM/IA) es el promedio ponderado de los puntajes 0-100 de
- * sus variables. El puntaje traduce el valor crudo a la misma escala del
- * semaforo, de modo que un componente con todas sus variables en verde cae en
- * la banda verde del indice, y lo mismo para amarillo y rojo:
- *
- *     zona verde    -> 100..75
- *     zona amarilla ->  75..60
- *     zona roja     ->  60..0
+ * El color del semaforo de los cuatro indices (ISBD, IP, IM, IA) NO usa esas
+ * bandas fijas: sale de los umbrales configurables por base que guarda
+ * Monitor_Umbrales_Indice y que llegan aqui como ['verde' => x, 'rojo' => y].
  *
  * Las variables de sentido 'fijo' (tamano de SGA, maximo de procesos) son datos
  * de configuracion: no puntuan ni generan alertas, y su peso se reparte entre
@@ -28,47 +25,48 @@ namespace CloudCR\Monitor;
  */
 final class CalculadoraSalud
 {
-    /** Pesos por componente propuestos por el documento del profesor. */
     public const PESOS_COMPONENTES = [
-        'procesos' => 0.30,
-        'memoria'  => 0.35,
-        'archivos' => 0.35,
+        'procesos' => 1 / 3,
+        'memoria'  => 1 / 3,
+        'archivos' => 1 / 3,
     ];
 
     public const COMPONENTES = ['procesos', 'memoria', 'archivos'];
 
-    /** Indicador que el frontend muestra por componente. */
     public const INDICADORES = ['procesos' => 'IP', 'memoria' => 'IM', 'archivos' => 'IA'];
+
+    public const CLAVES_INDICE = ['procesos' => 'ip', 'memoria' => 'im', 'archivos' => 'ia'];
+
+    public const INDICES_CONFIGURABLES = ['isbd', 'ip', 'im', 'ia'];
+
+    public const UMBRALES_INDICE_POR_DEFECTO = [
+        'isbd' => ['verde' => 75.0, 'rojo' => 60.0],
+        'ip'   => ['verde' => 75.0, 'rojo' => 60.0],
+        'im'   => ['verde' => 75.0, 'rojo' => 60.0],
+        'ia'   => ['verde' => 75.0, 'rojo' => 60.0],
+    ];
 
     private const PUNTAJE_VERDE_MINIMO    = 75.0;
     private const PUNTAJE_AMARILLO_MINIMO = 60.0;
 
     /**
-     * Penalizacion por variable/componente critico.
+     * Piso del puntaje dentro de la media geometrica de un componente.
      *
-     * Sin esto, el indice de un componente es el promedio ponderado de sus 8
-     * variables, y una sola en rojo apenas lo mueve (7 verdes lo suben de
-     * vuelta): el ISBD termina escondiendo las criticas, justo lo que el
-     * documento del profesor pide evitar. Con la penalizacion activa, el indice
-     * NO puede quedar en una banda mejor que la de su peor componente: una
-     * variable roja topa su componente en rojo, y un componente rojo topa el
-     * ISBD en rojo. Asi una critica individual se propaga hasta el indice
-     * global en vez de diluirse.
+     * La media geometrica es parcialmente no-compensatoria: un puntaje bajo
+     * pesa mas de lo que su peso nominal sugeriria, y esa penalizacion crece
+     * con el propio peso de la variable -- sin recurrir a un techo fijo por
+     * banda de color, que trataba igual a una critica que pesa 1% del
+     * componente que a una que pesa 50%. Mismo criterio que uso el PNUD al
+     * pasar el IDH de media aritmetica a geometrica en 2010, para que un
+     * puntaje bueno no "tape" a uno malo en el promedio.
      *
-     * Se deja como interruptor para poder mostrar el antes/despues y explicar
-     * la decision en el informe.
+     * log(0) no esta definido, asi que una variable en el fondo de la escala
+     * (puntaje 0) se trata como 1 en vez de anular el producto entero sin
+     * importar el peso de las demas variables.
+     *
+     * Aplica solo a IP/IM/IA. El ISBD es el promedio simple de los tres.
      */
-    private const PENALIZAR_CRITICO = true;
-
-    /**
-     * Techos de la penalizacion:
-     * - Amarillo: el indice no supera el tope de la banda amarilla.
-     * - Rojo: el indice baja hasta el puntaje de la PEOR variable/componente
-     *   (weakest-link), no a un tope fijo. Asi una critica leve deja el indice
-     *   apenas en rojo y una critica profunda lo hunde de verdad, en vez de
-     *   quedarse siempre pegado al borde superior del rojo.
-     */
-    private const TECHO_AMARILLO = 74.99;
+    private const PUNTAJE_MINIMO_GEOMETRICO = 1.0;
 
     /**
      * Color del semaforo de una variable comparando el valor crudo contra sus
@@ -83,22 +81,23 @@ final class CalculadoraSalud
             return null;
         }
 
-        $advertencia = (float) $variable['limite_advertencia'];
-        $critico     = (float) $variable['limite_critico'];
+        $verde = (float) $variable['limite_advertencia'];
+        $rojo  = (float) $variable['limite_critico'];
 
-        if ($variable['sentido'] === 'alto_malo') {
+        // La direccion sale del orden de los dos umbrales, no de una columna
+        // aparte: si el rojo es mayor, valores altos son peores.
+        if ($rojo > $verde) {
             return match (true) {
-                $valor >= $critico     => 'rojo',
-                $valor >= $advertencia => 'amarillo',
-                default                => 'verde',
+                $valor >= $rojo  => 'rojo',
+                $valor <= $verde => 'verde',
+                default          => 'amarillo',
             };
         }
 
-        // alto_bueno: mientras mas alto mejor, asi que los umbrales van al reves.
         return match (true) {
-            $valor <= $critico     => 'rojo',
-            $valor <= $advertencia => 'amarillo',
-            default                => 'verde',
+            $valor <= $rojo  => 'rojo',
+            $valor >= $verde => 'verde',
+            default          => 'amarillo',
         };
     }
 
@@ -118,7 +117,7 @@ final class CalculadoraSalud
 
         $advertencia = (float) $variable['limite_advertencia'];
         $critico     = (float) $variable['limite_critico'];
-        $altoMalo    = $variable['sentido'] === 'alto_malo';
+        $altoMalo    = $critico > $advertencia;
 
         // Fraccion 0..1 de avance dentro de la banda, siempre en direccion
         // "hacia peor", sin importar el sentido de la variable.
@@ -153,107 +152,80 @@ final class CalculadoraSalud
     }
 
     /**
-     * Indice 0-100 de un componente: promedio de los puntajes ponderado por el
-     * peso de cada variable. Los pesos se renormalizan sobre las variables
-     * realmente puntuadas, asi que no hace falta que el collector envie las 25
-     * ni que los pesos del catalogo sumen exactamente 100.
+     * Indice 0-100 de un componente: media geometrica de los puntajes
+     * ponderada por el peso de cada variable. Los pesos se renormalizan sobre
+     * las variables realmente puntuadas, asi que no hace falta que el
+     * collector envie las 25 ni que los pesos del catalogo sumen exactamente
+     * 100.
      *
-     * Las variables con penaliza=false (marcas de agua / contadores
-     * acumulativos como m7 y m8) aportan a la media pero NO cuentan para el
-     * techo: un pico historico no debe hundir el indice en vivo.
-     *
-     * @param list<array{peso:float,puntaje:?float,penaliza?:bool}> $variables
+     * @param list<array{peso:float,puntaje:?float}> $variables
      */
     public static function indiceComponente(array $variables): ?float
     {
-        $sumaPesos    = 0.0;
-        $sumaPuntajes = 0.0;
-        $peor         = 100.0;
+        $sumaPesos      = 0.0;
+        $sumaLogaritmos = 0.0;
 
         foreach ($variables as $v) {
             if ($v['puntaje'] === null || $v['peso'] <= 0) {
                 continue;
             }
-            $sumaPesos    += $v['peso'];
-            $sumaPuntajes += $v['peso'] * $v['puntaje'];
-            if ($v['penaliza'] ?? true) {
-                $peor = min($peor, $v['puntaje']);
-            }
+            $puntaje = max($v['puntaje'], self::PUNTAJE_MINIMO_GEOMETRICO);
+            $sumaPesos      += $v['peso'];
+            $sumaLogaritmos += $v['peso'] * log($puntaje);
         }
 
         if ($sumaPesos <= 0) {
             return null;
         }
 
-        $promedio = $sumaPuntajes / $sumaPesos;
-
-        // El componente no puede estar en mejor banda que su peor variable.
-        return self::redondear(min($promedio, self::techoDeBanda($peor)));
+        return self::redondear(exp($sumaLogaritmos / $sumaPesos));
     }
 
     /**
-     * ISBD = Wp*IP + Wm*IM + Wa*IA. Los pesos se renormalizan sobre los
-     * componentes presentes para que el resultado siga en escala 0-100 aunque
-     * falte alguno.
+     * ISBD = (IP + IM + IA) / 3. Promedio simple de los componentes presentes,
+     * sin ponderacion y sin techo por peor componente: el numero es la media de
+     * los tres indices. Las criticas individuales siguen viajando por
+     * Monitor_Alertas y por el techo interno de cada componente.
      *
      * @param array<string,float> $indices  componente => indice 0-100
      */
     public static function isbd(array $indices): float
     {
-        $sumaPesos  = 0.0;
-        $acumulado  = 0.0;
-        $peor       = 100.0;
+        $valores = [];
 
-        foreach (self::PESOS_COMPONENTES as $componente => $peso) {
-            if (!isset($indices[$componente])) {
-                continue;
+        foreach (self::COMPONENTES as $componente) {
+            if (isset($indices[$componente])) {
+                $valores[] = (float) $indices[$componente];
             }
-            $sumaPesos += $peso;
-            $acumulado += $peso * $indices[$componente];
-            $peor       = min($peor, $indices[$componente]);
         }
 
-        if ($sumaPesos <= 0) {
+        if ($valores === []) {
             return 0.0;
         }
 
-        $promedio = $acumulado / $sumaPesos;
-
-        // El ISBD no puede estar en mejor banda que su peor componente.
-        return self::redondear(min($promedio, self::techoDeBanda($peor)));
+        return self::redondear(array_sum($valores) / count($valores));
     }
 
     /**
-     * Tope al que se limita un indice segun la banda de su peor componente.
-     * Con la penalizacion desactivada no topa nada (devuelve 100).
-     */
-    private static function techoDeBanda(float $peor): float
-    {
-        if (!self::PENALIZAR_CRITICO) {
-            return 100.0;
-        }
-
-        return match (true) {
-            // Rojo: el techo es el propio puntaje de la peor senal, para que la
-            // profundidad de la critica se refleje en el indice.
-            $peor < self::PUNTAJE_AMARILLO_MINIMO => $peor,
-            $peor < self::PUNTAJE_VERDE_MINIMO    => self::TECHO_AMARILLO,
-            default                               => 100.0,
-        };
-    }
-
-    /**
-     * Estado de un indice en la escala 0-100. Mismos cortes que ya usaba el
-     * frontend para colorear las tarjetas.
+     * Semaforo de un indice 0-100 contra sus dos umbrales configurables. Los
+     * indices son siempre "mientras mas alto, mejor", asi que se lee igual que
+     * una variable alto_bueno: verde desde el umbral verde hacia arriba, rojo
+     * desde el umbral rojo hacia abajo, amarillo en medio.
      *
+     * Sin umbrales cae en los cortes historicos 75 / 60.
+     *
+     * @param array{verde:float,rojo:float}|null $umbrales
      * @return array{nombre:string,color:string}
      */
-    public static function estadoDeIndice(float $valor): array
+    public static function estadoDeIndice(float $valor, ?array $umbrales = null): array
     {
+        $verde = (float) ($umbrales['verde'] ?? self::PUNTAJE_VERDE_MINIMO);
+        $rojo  = (float) ($umbrales['rojo'] ?? self::PUNTAJE_AMARILLO_MINIMO);
+
         return match (true) {
-            $valor >= self::PUNTAJE_VERDE_MINIMO    => ['nombre' => 'Verde', 'color' => 'verde'],
-            $valor >= self::PUNTAJE_AMARILLO_MINIMO => ['nombre' => 'Amarillo', 'color' => 'amarillo'],
-            default                                 => ['nombre' => 'Rojo', 'color' => 'rojo'],
+            $valor >= $verde => ['nombre' => 'Verde', 'color' => 'verde'],
+            $valor <= $rojo  => ['nombre' => 'Rojo', 'color' => 'rojo'],
+            default          => ['nombre' => 'Amarillo', 'color' => 'amarillo'],
         };
     }
 
@@ -271,7 +243,8 @@ final class CalculadoraSalud
             : (float) $variable['limite_advertencia'];
 
         $nombreLimite = $color === 'rojo' ? 'critico' : 'de advertencia';
-        $direccion    = $variable['sentido'] === 'alto_malo' ? 'por encima del' : 'por debajo del';
+        $altoMalo     = (float) $variable['limite_critico'] > (float) $variable['limite_advertencia'];
+        $direccion    = $altoMalo ? 'por encima del' : 'por debajo del';
 
         return sprintf(
             '%s: %s %s, %s umbral %s (%s %s).',

@@ -2,20 +2,29 @@ const ETIQUETA = { verde: 'Verde', amarillo: 'Amarillo', rojo: 'Rojo' };
 
 export const SIN_DATO = '—';
 
-/**
- * Lectura de una variable en el ultimo snapshot del collector.
- *
- * El backend ya resolvio el color contra los umbrales de Monitor_Variables
- * (misma regla que aplicaba antes este archivo sobre datos simulados), asi que
- * aqui solo se le da formato para la tabla.
- *
- * Devuelve valor null cuando el collector todavia no reporto esa variable:
- * puede ser que la instancia recien se registro, o que al usuario de monitoreo
- * le falte privilegio sobre esa vista.
- *
- * @param {object} variable    definicion de la variable (trae id y unidad)
- * @param {Map<string,object>} mediciones  codigo -> medicion del API
- */
+const conUnidad = (valor, unidad) => (unidad ? `${valor} ${unidad}` : String(valor));
+
+export function tieneUmbrales(variable) {
+  return variable?.umbralVerde !== null && variable?.umbralVerde !== undefined
+    && variable?.umbralRojo !== null && variable?.umbralRojo !== undefined;
+}
+
+export function colorDeVariable(variable, valor) {
+  if (!tieneUmbrales(variable)) return null;
+
+  const { umbralVerde, umbralRojo } = variable;
+
+  if (umbralRojo > umbralVerde) {
+    if (valor <= umbralVerde) return 'verde';
+    if (valor >= umbralRojo) return 'rojo';
+    return 'amarillo';
+  }
+
+  if (valor >= umbralVerde) return 'verde';
+  if (valor <= umbralRojo) return 'rojo';
+  return 'amarillo';
+}
+
 export function estadoDeVariable(variable, mediciones) {
   const medicion = mediciones?.get(variable.id);
 
@@ -23,19 +32,41 @@ export function estadoDeVariable(variable, mediciones) {
     return { valor: null, unidad: variable.unidad, estado: null, color: null, medido: false };
   }
 
+  const color = colorDeVariable(variable, Number(medicion.valor));
+
   return {
     valor: medicion.valor,
     unidad: medicion.unidad ?? variable.unidad,
-    // Las variables 'fijo' son configuracion (tamano de SGA, maximo de
-    // procesos): tienen valor pero no estado ni color.
-    estado: medicion.color ? ETIQUETA[medicion.color] : null,
-    color: medicion.color ?? null,
+    estado: color ? ETIQUETA[color] : null,
+    color,
     medido: true,
   };
 }
 
-/** Texto de la celda "Valor" de las tablas de detalle. */
 export function formatearValor({ valor, unidad }) {
   if (valor === null || valor === undefined) return SIN_DATO;
-  return unidad ? `${valor} ${unidad}` : String(valor);
+  return conUnidad(valor, unidad);
+}
+
+export function formatearUmbrales(variable) {
+  if (!tieneUmbrales(variable)) return SIN_DATO;
+
+  const { umbralVerde, umbralRojo, unidad } = variable;
+  return `Verde: ${conUnidad(umbralVerde, unidad)} · Rojo: ${conUnidad(umbralRojo, unidad)}`;
+}
+
+export function describirUmbrales(variable) {
+  if (!tieneUmbrales(variable)) return null;
+
+  const { umbralVerde, umbralRojo, unidad } = variable;
+  if (umbralVerde === umbralRojo) return null;
+
+  const verde = conUnidad(umbralVerde, unidad);
+  const rojo = conUnidad(umbralRojo, unidad);
+
+  if (umbralRojo > umbralVerde) {
+    return `Un valor de ${verde} o menos es Verde; entre ${verde} y ${rojo} es Amarillo; y de ${rojo} o más es Rojo.`;
+  }
+
+  return `Un valor de ${verde} o más es Verde; entre ${rojo} y ${verde} es Amarillo; y de ${rojo} o menos es Rojo.`;
 }
