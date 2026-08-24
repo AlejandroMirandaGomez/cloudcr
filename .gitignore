@@ -13,3 +13,12 @@ composer.lock
 /.claude/
 skills-lock.json
 error.log
+
+# Collector local y mock client del Monitor de Salud (Fase 2).
+# .env lleva el token del collector; instancia/ lleva credenciales de Oracle.
+/collector/.env
+/frontend/.env
+/collector/instancia/
+/agente_local/.env
+__pycache__/
+*.pyc

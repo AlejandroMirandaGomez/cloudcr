@@ -53,26 +53,59 @@ Con una escala 0–100 y estados: Óptimo, Saludable, Advertencia, Degradado,
 Crítico. El sistema también debe generar alertas por componente y guardar
 histórico para graficar evolución.
 
-### ⚠️ Punto importante de arquitectura
-El documento del profesor está redactado en términos de vistas dinámicas de
-**Oracle** (`V$PROCESS`, `V$SESSION`, `V$SGA`, `V$SGASTAT`, `V$PGASTAT`,
-`V$DATAFILE`, `V$LOG`, `V$LOGFILE`, etc.), pero el backend real de CloudCR
-usa **PostgreSQL**. Hasta que no se confirme si habrá una conexión Oracle
-real, todo el desarrollo debe trabajar con **datos simulados** (mock/fixtures)
-para que nadie del equipo quede bloqueado.
+### Arquitectura del monitor (resuelto)
 
-### Pendiente de confirmar con el profesor (bloquea solo lo relacionado con Oracle real)
-- Si se trabajará contra una instancia Oracle real o se simulará con datos de prueba.
-- Pesos definitivos de Wp, Wm, Wa (propuesta actual: 30/35/35).
-- Umbrales oficiales por variable (p1...pn, m1...mn, a1...an).
-- Alcance exacto de la versión 1 (qué variables son obligatorias).
-- Formato y rúbrica de entrega de esta fase.
+El documento del profesor esta redactado sobre vistas dinamicas de **Oracle**
+(`V$PROCESS`, `V$SESSION`, `V$SGA`, `V$PGASTAT`, `V$DATAFILE`, `V$LOG`...),
+pero el backend de CloudCR usa **PostgreSQL** y esta desplegado en Render,
+mientras que la instancia Oracle de prueba corre en `localhost`. Render no
+puede alcanzar `localhost`, asi que la conexion va al reves:
+
+```
+[Oracle XE local] <-- [collector/] --push--> [backend PHP] --> [PostgreSQL] --> [dashboard]
+```
+
+- `collector/` (Python + `oracledb` en modo thin) corre en la maquina de la
+  base, ejecuta las consultas de salud y hace `POST /monitor/ingesta` con un
+  secreto compartido (`X-Collector-Token`).
+- El backend **no se conecta a Oracle**: recibe mediciones, calcula IP/IM/IA e
+  ISBD con `Monitor/CalculadoraSalud.php` y las guarda en las tablas
+  `Monitor_*` de PostgreSQL.
+- Las credenciales de Oracle nunca salen de la maquina local.
+- `agente_local/` es la pagina local para registrar la base y disparar el stress
+  del demo. No se deploya.
+
+**Penalizacion por critico (ISBD).** El indice de cada componente es el
+promedio ponderado de sus variables, pero ademas NO puede quedar en mejor banda
+que su peor variable: una variable roja topa el componente en rojo, y un
+componente rojo topa el ISBD en rojo (ver `CalculadoraSalud::PENALIZAR_CRITICO`).
+Asi una alerta critica individual se refleja en el indice global en vez de
+diluirse en el promedio -- la regla del documento del profesor, aplicada tambien
+al numero, no solo al panel de alertas.
+
+**Estado "caida".** Cuando el collector no puede leer una instancia avisa por
+`POST /monitor/estado-caida` y el dashboard la marca como caida (negro) en vez de
+mostrar el ultimo ISBD viejo. Una ingesta exitosa limpia el flag. El agente local
+tiene un boton para simular la caida en el demo.
+
+**Bases simuladas.** Las 4 bases quemadas originales (ERP, CRM, CloudCR,
+Analytics DW) se reinsertan con `php backend/scripts/seed_monitor_simuladas.php`,
+que reusa el pipeline real (`registrarSnapshot`). Conviven con las bases reales.
+
+**Ya no hay datos simulados en el modulo monitor.** Las 25 variables
+(`p1..p8`, `m1..m9`, `a1..a8`) con sus umbrales viven en la tabla
+`Monitor_Variables` (migraciones `backend/database/migrations/0004` y `0005`),
+y sus valores los mide el collector. Runbook completo en `collector/README.md`;
+pendientes conocidos en `backend/docs/Gaps.md`.
 
 ### Reparto de tareas por integrante
 
-**Persona A — Modelo de datos del monitor (PostgreSQL)**
-- Diseñar tablas `Monitor_Instancia`, `Monitor_Procesos`, `Monitor_Memoria`,
-  `Monitor_Archivos`, `Monitor_Indices`, `Monitor_Alertas`.
+**Persona A — Modelo de datos del monitor (PostgreSQL)**  ✅ hecho
+- Tablas reales: `Monitor_Bases_Datos`, `Monitor_Variables`,
+  `Monitor_Snapshots`, `Monitor_Mediciones`, `Monitor_Alertas`
+  (migracion `0003`). Se normalizo en variables + mediciones en vez de una
+  tabla por componente: las tres tendrian las mismas columnas y asi se pueden
+  agregar variables sin DDL.
 - Definir llaves, relaciones y tipos de dato de cada tabla.
 - Escribir el DDL en `database/`, siguiendo el estilo de `Modelo_Relacional.sql`.
 - Documentar el diccionario de datos de las tablas nuevas.
@@ -84,9 +117,10 @@ para que nadie del equipo quede bloqueado.
 - Regla explícita del documento: una alerta crítica individual **no** debe
   quedar oculta por un promedio ponderado alto — el sistema debe reportar
   ambos niveles (índice global + alertas por componente).
-- `MonitorRepository` (con datos simulados por ahora) + `MonitorController`
-  + rutas nuevas en `routes/routes.php` (`/monitor/indice`, `/monitor/alertas`,
-  `/monitor/historico`).
+- `MonitorRepository` (contra PostgreSQL) + `MonitorController` + rutas en
+  `routes/routes.php`: `/monitor/bases-datos`, `/monitor/indice`,
+  `/monitor/alertas`, `/monitor/historico`, `/monitor/variables` y
+  `POST /monitor/ingesta`.
 
 **Persona C — Dashboard (frontend)**
 - Módulo nuevo `frontend/src/modules/monitor/`, calcado de `dashboard/`.
@@ -96,7 +130,7 @@ para que nadie del equipo quede bloqueado.
 - Puede maquetar todo contra datos simulados mientras Persona B expone el
   endpoint real.
 
-**Persona D — Investigación Oracle y coordinación**
+**Persona D — Investigación Oracle y coordinación**  ✅ consultas implementadas
 - Documentar las vistas `V$PROCESS`, `V$SESSION`, `V$RESOURCE_LIMIT`,
   `V$SGA`, `V$SGASTAT`, `V$PGASTAT`, `V$DATAFILE`, `V$TEMPFILE`, `V$LOG`,
   `V$LOGFILE`.

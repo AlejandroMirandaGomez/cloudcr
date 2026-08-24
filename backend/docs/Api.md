@@ -344,3 +344,149 @@ Secundario 0.5, sin relacion 0).
 
 `controles` viene ordenado por `exposicion` descendente (ranking de remediacion). Una
 dimension sin controles considerados trae `exposicion` en `null` y nivel `sin_datos`.
+## Monitor de Salud — Fase 2
+
+Datos en vivo de una instancia Oracle. El backend **no se conecta a Oracle**:
+recibe las mediciones que empuja el collector local (ver `collector/README.md`),
+calcula los indicadores y sirve el último estado al dashboard.
+
+Índice: `ISBD = 0.30·IP + 0.35·IM + 0.35·IA`, en escala 0–100.
+Estados: `Verde` (≥ 75), `Amarillo` (≥ 60), `Rojo` (< 60), `Caida` (sin conexión).
+
+**Penalización por crítico (weakest-link):** el índice de un componente no
+puede superar el puntaje de su peor variable, y el ISBD no puede superar el de
+su peor componente. En amarillo topa en la banda; en rojo baja hasta el puntaje
+de la peor señal, así la profundidad de la crítica se refleja (una crítica al
+fondo puede llevar el ISBD a 0). Ver `CalculadoraSalud::PENALIZAR_CRITICO`.
+
+Todos los GET aceptan `?baseDatosId=<id>`. Sin ese parámetro usan la primera
+base activa.
+
+### `GET /monitor/bases-datos`
+
+Listado para la pantalla selectora. Una base recién registrada, sin snapshots
+todavía, devuelve `isbd: null` y `estado: "Sin datos"`.
+
+```json
+{ "data": [ {
+  "id": 1, "nombre": "Oracle XE Local", "motor": "Oracle",
+  "host": "localhost", "puerto": 1521, "servicio": "XEPDB1",
+  "isbd": 94.47, "estado": "Verde", "color": "verde",
+  "actualizado_en": "2026-08-23 16:12:04"
+} ] }
+```
+
+### `GET /monitor/indice`
+
+Índice del último snapshot, con el desglose por componente y los pesos usados.
+
+```json
+{ "data": {
+  "base_datos": { "id": 1, "nombre": "Oracle XE Local", "motor": "Oracle" },
+  "isbd": { "valor": 94.47, "estado": "Verde", "color": "verde",
+            "pesos": { "procesos": 0.3, "memoria": 0.35, "archivos": 0.35 } },
+  "componentes": {
+    "procesos": { "indicador": "IP", "valor": 98.88, "estado": "Verde", "color": "verde" },
+    "memoria":  { "indicador": "IM", "valor": 85.2,  "estado": "Verde", "color": "verde" },
+    "archivos": { "indicador": "IA", "valor": 99.97, "estado": "Verde", "color": "verde" }
+  },
+  "actualizado_en": "2026-08-23 16:12:04", "simulado": false
+} }
+```
+
+**404** si la base existe pero todavía no tiene mediciones.
+
+### `GET /monitor/alertas`
+
+Alertas del último snapshot, críticas primero. Se sirven aparte del índice a
+propósito: una alerta crítica individual no debe quedar oculta detrás de un
+promedio ponderado alto.
+
+```json
+{ "data": [ {
+  "id": 42, "componente": "procesos", "variable": "p6", "severidad": "critica",
+  "mensaje": "Sesiones bloqueadas: 7 sesiones, por encima del umbral critico (5 sesiones).",
+  "generada_en": "2026-08-23 16:12:04"
+} ] }
+```
+
+### `GET /monitor/historico`
+
+Evolución del ISBD, del snapshot más viejo al más reciente. `limite` acota
+cuántos (por defecto 30, máximo 500).
+
+```json
+{ "data": [ { "id": 11, "fecha": "2026-08-23 16:12:04", "etiqueta": "16:12:04",
+              "isbd": 94.47, "ip": 98.88, "im": 85.2, "ia": 99.97 } ] }
+```
+
+### `GET /monitor/variables`
+
+Catálogo de las 25 variables con el valor medido en el último snapshot. Acepta
+`?componente=procesos|memoria|archivos`. `valor: null` = el collector todavía no
+la reportó. `color: null` = variable de configuración (`sentido: "fijo"`), que
+no puntúa ni genera alertas.
+
+```json
+{ "data": [ {
+  "id": "p6", "codigo": "p6", "componente": "procesos",
+  "variable": "Sesiones bloqueadas", "descripcion": "Sesiones que esperan por otra sesión",
+  "fuente": "V$SESSION (blocking_session) / V$WAIT_CHAINS", "unidad": "sesiones",
+  "sentido": "alto_malo", "limite_advertencia": 2, "limite_critico": 5, "peso": 12.5,
+  "valor": 0, "puntaje": 100, "color": "verde", "estado": "Verde",
+  "justificacion": "…"
+} ] }
+```
+
+### `POST /monitor/estado-caida`
+
+La llama el collector cuando no puede leer una instancia. Mismo token que la
+ingesta (`X-Collector-Token`). Marca la base como caida; el dashboard la muestra
+como "Caida - sin conexion". Una ingesta exitosa posterior limpia el flag.
+
+```json
+{ "nombre": "Oracle XE Local", "caida": true, "motivo": "sin conexion" }
+```
+
+Respuesta **200**: `{ "data": { "id": 1, "nombre": "...", "caida": true } }`.
+`caida:false` restaura la base. **404** si el nombre no existe, **401** sin token.
+
+### `POST /monitor/ingesta`
+
+Lo llama el collector local. **Es el único endpoint del API con credencial
+propia**: exige la cabecera `X-Collector-Token` con el secreto compartido
+(variable de entorno `MONITOR_COLLECTOR_TOKEN`, mínimo 16 caracteres).
+
+```http
+POST /monitor/ingesta
+X-Collector-Token: <secreto>
+Content-Type: application/json
+
+{
+  "base_datos": { "nombre": "Oracle XE Local", "motor": "Oracle",
+                  "host": "localhost", "puerto": 1521, "servicio": "XEPDB1" },
+  "mediciones": { "p1": 88, "p2": 1760, "m3": 63.95, "a4": 98.88 }
+}
+```
+
+La base se da de alta o se actualiza por `nombre`. La marca de tiempo del
+snapshot es la de llegada al API, no una enviada por el collector, para que el
+orden del histórico no dependa del reloj de la máquina local.
+
+No hace falta mandar las 25 variables: los pesos se renormalizan sobre las que
+lleguen. La única condición es que **cada componente traiga al menos una
+variable con umbrales**.
+
+**201**
+
+```json
+{ "data": { "snapshot_id": 11, "base_datos_id": 1, "isbd": 94.47,
+            "componentes": { "procesos": 98.88, "memoria": 85.2, "archivos": 99.97 },
+            "alertas": 2, "mediciones": 25 } }
+```
+
+| Código | Cuándo |
+|---|---|
+| `401` | token ausente o incorrecto |
+| `422` | código de variable desconocido, valor no numérico, o falta un componente |
+| `503` | `MONITOR_COLLECTOR_TOKEN` sin configurar en el servidor (falla cerrado) |

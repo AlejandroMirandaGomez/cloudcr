@@ -11,7 +11,8 @@ import EstadoChip from '../components/EstadoChip.jsx';
 import IndiceComponenteBanner from '../components/IndiceComponenteBanner.jsx';
 import usePesosEditables from '../hooks/usePesosEditables.js';
 import useIndiceComponente from '../hooks/useIndiceComponente.js';
-import { estadoDeVariable } from '../lib/estadoVariable.js';
+import useMediciones from '../hooks/useMediciones.js';
+import { estadoDeVariable, formatearValor } from '../lib/estadoVariable.js';
 
 const COMPONENTE_ID = 'procesos';
 
@@ -19,6 +20,8 @@ export default function ProcesosDetallePage() {
   const { baseDatosId } = useParams();
   const pesos = usePesosEditables(COMPONENTE_ID);
   const componente = useIndiceComponente(baseDatosId, COMPONENTE_ID);
+  // Valores reales del ultimo snapshot del collector, refrescados solos.
+  const { mediciones } = useMediciones(baseDatosId, COMPONENTE_ID);
 
   const columns = useMemo(
     () => [
@@ -35,22 +38,23 @@ export default function ProcesosDetallePage() {
       {
         id: 'valor',
         header: 'Valor',
-        accessorFn: (row) => estadoDeVariable(row, baseDatosId).valor,
-        Cell: ({ row }) => {
-          const { valor, unidad } = estadoDeVariable(row.original, baseDatosId);
-          return `${valor} ${unidad}`;
-        },
+        accessorFn: (row) => estadoDeVariable(row, mediciones).valor,
+        Cell: ({ row }) => formatearValor(estadoDeVariable(row.original, mediciones)),
         size: 110,
       },
       {
         id: 'estado',
         header: 'Estado',
-        accessorFn: (row) => estadoDeVariable(row, baseDatosId).estado ?? 'Config',
+        accessorFn: (row) => {
+          const { estado, medido } = estadoDeVariable(row, mediciones);
+          return estado ?? (medido ? 'Config' : 'Sin dato');
+        },
         Cell: ({ row }) => {
-          const { estado, color } = estadoDeVariable(row.original, baseDatosId);
-          return estado
-            ? <EstadoChip color={color} label={estado} />
-            : <Chip label="Config" size="small" variant="outlined" />;
+          const { estado, color, medido } = estadoDeVariable(row.original, mediciones);
+          if (estado) return <EstadoChip color={color} label={estado} />;
+          // 'Config' = variable fija (no refleja salud); 'Sin dato' = el
+          // collector todavia no la reporto o le falta privilegio.
+          return <Chip label={medido ? 'Config' : 'Sin dato'} size="small" variant="outlined" />;
         },
         size: 110,
       },
@@ -71,7 +75,7 @@ export default function ProcesosDetallePage() {
         ),
       },
     ],
-    [pesos.editando, pesos.modo, pesos.maximoPara, pesos.editarPeso, pesos.alternarBloqueo, baseDatosId],
+    [pesos.editando, pesos.modo, pesos.maximoPara, pesos.editarPeso, pesos.alternarBloqueo, mediciones],
   );
 
   return (

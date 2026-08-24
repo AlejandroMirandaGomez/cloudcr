@@ -118,11 +118,17 @@ cualquier endpoint. El control de acceso por rol vive solo en el frontend
 token (p. ej. firmado con HMAC) validado en `Bootstrap`/middleware, y filtrar por
 `organizacion_id`/`evaluador_id` de la sesion en los endpoints de lectura.
 
-Esto tambien aplica a `/monitor/*` (Fase 2): en frontend esas rutas ya estan restringidas a
-`session.rol === 'evaluador'` (`router.jsx`, `Sidebar.jsx`), pero el backend no valida rol
-todavia, asi que un cliente que adivine la URL puede llamar el endpoint igual. No se agrego
-un mecanismo de auth solo para este modulo para no duplicar solucion cuando se resuelva
+Esto tambien aplica a los **GET** de `/monitor/*` (Fase 2): en frontend esas rutas ya estan
+restringidas a `session.rol === 'evaluador'` (`router.jsx`, `Sidebar.jsx`), pero el backend no
+valida rol todavia, asi que un cliente que adivine la URL puede leer las metricas igual. No se
+agrego un mecanismo de auth solo para este modulo para no duplicar solucion cuando se resuelva
 este punto de forma general.
+
+La **escritura** si esta protegida: `POST /monitor/ingesta` exige la cabecera
+`X-Collector-Token` contra `MONITOR_COLLECTOR_TOKEN` (ver `Monitor/AutenticacionCollector.php`),
+comparada con `hash_equals`. Falla cerrado: sin token configurado en el servidor responde 503.
+Es un secreto compartido con el collector, no un esquema de sesion: identifica a la maquina que
+empuja metricas, no a un usuario.
 
 ---
 
@@ -136,3 +142,67 @@ ALTER TABLE Organizaciones
     ADD COLUMN contacto_nombre VARCHAR(150),
     ADD COLUMN contacto_telefono VARCHAR(30);
 ```
+
+---
+
+## Monitor de Salud — pendientes de la Fase 2  🟡
+
+### Umbrales calibrados contra datos simulados
+
+Los umbrales del catalogo `Monitor_Variables` (migracion `0004`) salieron de los valores
+inventados que vivian en `frontend/src/modules/monitor/data/variablesMonitor.js`. Al conectar
+el collector contra Oracle XE 21c real aparecio que **m4 (Uso de Buffer Cache) queda en critico
+permanente**: Oracle mantiene el cache lleno a proposito y la ocupacion se estabiliza en
+99.91 %, contra unos umbrales de 75/92.
+
+La migracion `0005` los subio a 99.5/99.95 como parche, pero la correccion de fondo es cambiar
+la variable por el **miss ratio** del buffer cache:
+
+```sql
+SELECT ROUND(100 * SUM(CASE WHEN name = 'physical reads cache' THEN value ELSE 0 END)
+             / NULLIF(SUM(CASE WHEN name IN ('db block gets from cache',
+                                             'consistent gets from cache')
+                               THEN value ELSE 0 END), 0), 2)
+FROM v$sysstat
+```
+
+En la misma instancia dio 3.41 %, y si es un indicador directo de presion de memoria. Requiere
+acordar umbrales nuevos con el profesor (propuesta: advertencia 10 %, critico 25 %).
+
+El resto de los umbrales tampoco se validaron contra una instancia con carga real; conviene
+revisarlos con datos del demo antes de la entrega.
+
+### Definicion de variables duplicada entre backend y frontend
+
+`Monitor_Variables` (backend) y `data/variablesMonitor.js` (frontend) describen las mismas 25
+variables. El backend es la fuente de verdad para el calculo de indices y alertas; el archivo
+del frontend quedo solo para la interfaz de **pesos y umbrales editables**, que hoy es estado
+del cliente y se pierde al recargar.
+
+Para unificarlas hace falta persistir esa edicion:
+
+```
+PUT /monitor/variables/{codigo}     -> umbrales y peso
+```
+
+con su validacion (los pesos de un componente deben sumar 100) y control de rol. Mientras eso
+no exista, cambiar un umbral en la pantalla no afecta las alertas que genera el backend, que es
+una inconsistencia visible para el usuario.
+
+### Pesos del ISBD fijos en codigo
+
+`Wp/Wm/Wa` (30/35/35) estan como constante en `Monitor/CalculadoraSalud.php` y se guardan en
+cada snapshot para dejar rastro de con que pesos se calculo. No hay forma de cambiarlos sin
+tocar codigo. Si el profesor define otros pesos, conviene una tabla de configuracion o al menos
+variables de entorno.
+
+### Retencion del historico
+
+`Monitor_Snapshots` y `Monitor_Mediciones` crecen sin limite. Con el intervalo de demo (3 s) son
+1200 snapshots por hora y 30 000 mediciones. Falta una purga:
+
+```sql
+DELETE FROM Monitor_Snapshots WHERE capturado_en < now() - INTERVAL '7 days';
+```
+
+(las mediciones y alertas caen solas por `ON DELETE CASCADE`).

@@ -1,0 +1,6 @@
+# Collector local del Monitor de Salud (Fase 2).
+# Instalar con:  pip install -r collector/requirements.txt
+oracledb>=2.0        # driver Oracle en modo thin, sin Instant Client
+requests>=2.31       # push al API del monitor
+Flask>=3.0           # API local que consume el mock client
+python-dotenv>=1.0   # lectura de collector/.env

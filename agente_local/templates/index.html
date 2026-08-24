@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agente Local — Monitor de Salud CloudCR</title>
+<style>
+  :root {
+    --fondo: #f5f6f8; --panel: #ffffff; --borde: #dfe3e8; --texto: #1c2430;
+    --suave: #5b6675; --primario: #0b5fff; --verde: #1f9d55; --amarillo: #b7791f;
+    --rojo: #c02a2a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fondo: #14181d; --panel: #1c222a; --borde: #2c343f; --texto: #e8ecf1;
+      --suave: #9aa5b3; --primario: #5a92ff; --verde: #46c07a; --amarillo: #e0a94a;
+      --rojo: #ef6a6a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; background: var(--fondo); color: var(--texto);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .contenedor { max-width: 980px; margin: 0 auto; display: grid; gap: 20px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  p.nota { margin: 4px 0 0; color: var(--suave); font-size: 13px; }
+  .panel { background: var(--panel); border: 1px solid var(--borde);
+           border-radius: 10px; padding: 20px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  label { display: block; font-size: 13px; color: var(--suave); margin-bottom: 4px; }
+  input, select { width: 100%; padding: 8px 10px; border: 1px solid var(--borde);
+                  border-radius: 6px; background: var(--fondo); color: var(--texto); font: inherit; }
+  button { padding: 9px 16px; border: 0; border-radius: 6px; background: var(--primario);
+           color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  button.secundario { background: transparent; border: 1px solid var(--borde); color: var(--texto); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .acciones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .aviso { padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-top: 14px;
+           border: 1px solid var(--borde); white-space: pre-wrap; }
+  .aviso.ok { border-color: var(--verde); color: var(--verde); }
+  .aviso.mal { border-color: var(--rojo); color: var(--rojo); }
+  .peligro { border-left: 3px solid var(--amarillo); padding-left: 12px; color: var(--suave); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--borde); }
+  th { color: var(--suave); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px;
+          font-weight: 600; border: 1px solid currentColor; }
+  .chip.ok { color: var(--verde); } .chip.mal { color: var(--rojo); }
+  .chip.espera { color: var(--suave); }
+  code { background: var(--fondo); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="contenedor">
+
+  <header>
+    <h1>Agente Local — Monitor de Salud</h1>
+    <p class="nota">
+      Herramienta local de demostracion. Registra una base en el collector
+      (<code>{{ collector_url }}</code>) y dispara stress contra Oracle.
+      No se deploya.
+    </p>
+  </header>
+
+  <section class="panel">
+    <h2>1. Registrar base de datos</h2>
+    <p class="nota">
+      Estos datos van al collector local, que es quien se conecta a Oracle.
+      Las credenciales nunca salen de esta maquina: al monitor solo se envian
+      las metricas ya calculadas.
+    </p>
+
+    <form id="formulario" style="margin-top:16px">
+      <div class="grid">
+        <div><label for="nombre">Nombre en el monitor</label>
+             <input id="nombre" value="Oracle XE Local" required></div>
+        <div><label for="motor">Motor</label>
+             <select id="motor"><option>Oracle</option></select></div>
+        <div><label for="host">Host</label>
+             <input id="host" value="localhost" required></div>
+        <div><label for="puerto">Puerto</label>
+             <input id="puerto" type="number" value="1521" min="1" max="65535" required></div>
+        <div><label for="servicio">Service name / TNS</label>
+             <input id="servicio" value="XEPDB1" required></div>
+      </div>
+
+      <h2 style="margin:20px 0 12px">Usuario de monitoreo</h2>
+      <p class="nota" style="margin-bottom:12px">
+        Solo lectura de catalogo. Basta con
+        <code>GRANT CREATE SESSION, SELECT_CATALOG_ROLE</code>.
+      </p>
+      <div class="grid">
+        <div><label for="usuario">Usuario</label>
+             <input id="usuario" value="monitor_user" required></div>
+        <div><label for="contrasena">Contrasena</label>
+             <input id="contrasena" type="password" required></div>
+      </div>
+
+      <h2 style="margin:20px 0 12px">Usuario de stress <span class="nota">(opcional)</span></h2>
+      <p class="peligro">
+        Necesita privilegios de escritura y DDL. Solo para la base de prueba
+        local: el stress crea objetos <code>CLOUDCR_STRESS_*</code> y degrada la
+        instancia a proposito. Sin este usuario, los botones de stress quedan
+        deshabilitados.
+      </p>
+      <div class="grid" style="margin-top:12px">
+        <div><label for="usuario_stress">Usuario</label>
+             <input id="usuario_stress" placeholder="system"></div>
+        <div><label for="contrasena_stress">Contrasena</label>
+             <input id="contrasena_stress" type="password"></div>
+      </div>
+
+      <div class="acciones">
+        <button type="submit" id="botonRegistrar">Registrar y empezar a monitorear</button>
+      </div>
+    </form>
+    <div id="avisoRegistro"></div>
+  </section>
+
+  <section class="panel">
+    <h2>2. Bases monitoreadas</h2>
+    <table>
+      <thead><tr>
+        <th>Nombre</th><th>Conexion</th><th>Ultimo ciclo</th><th>ISBD</th><th>Alertas</th>
+      </tr></thead>
+      <tbody id="tablaBases"><tr><td colspan="5" class="nota">Cargando…</td></tr></tbody>
+    </table>
+    <div class="acciones">
+      <button class="secundario" onclick="cargarBases()">Actualizar</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>3. Simular caída de la base</h2>
+    <p class="nota">
+      El collector deja de leer la base y le reporta al monitor que está caída.
+      En el dashboard la tarjeta pasa a <strong>Caída — sin conexión</strong>.
+      No apaga Oracle: es una caída controlada para la demostración. Restaurar la
+      vuelve a poner en línea en el siguiente ciclo.
+    </p>
+    <div class="acciones">
+      <button id="botonCaida">Simular caída</button>
+      <button class="secundario" id="botonRestaurar">Restaurar</button>
+    </div>
+    <div id="avisoCaida"></div>
+  </section>
+
+  <section class="panel">
+    <h2>4. Stress</h2>
+    <p class="nota">
+      Cada mecanismo mueve variables concretas del monitor. Al dispararlo se le
+      pide al collector un ciclo inmediato, para que el dashboard lo refleje sin
+      esperar el intervalo.
+    </p>
+
+    <div class="grid" style="margin:16px 0">
+      <div><label for="duracion">Duracion (segundos)</label>
+           <input id="duracion" type="number" value="60" min="5" max="300"></div>
+      <div><label for="intensidad">Intensidad (1-20)</label>
+           <input id="intensidad" type="number" value="3" min="1" max="20"></div>
+    </div>
+
+    <table>
+      <thead><tr><th>Mecanismo</th><th>Que mueve</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Lock contention</strong></td>
+          <td class="nota">p6 sesiones bloqueadas</td>
+          <td id="estado-lock"><span class="chip espera">inactivo</span></td>
+          <td><button class="stress" data-tipo="lock" disabled>Disparar</button></td>
+        </tr>
+        <tr>
+          <td><strong>Llenar tablespace</strong></td>
+          <td class="nota">a4 espacio libre, a3 ocupacion (50 MB dedicados)</td>
+          <td id="estado-tablespace"><span class="chip espera">inactivo</span></td>
+          <td><button class="stress" data-tipo="tablespace" disabled>Disparar</button></td>
+        </tr>
+        <tr>
+          <td><strong>Carga de CPU</strong></td>
+          <td class="nota">p4 sesiones activas, p7 operaciones largas</td>
+          <td id="estado-cpu"><span class="chip espera">inactivo</span></td>
+          <td><button class="stress" data-tipo="cpu" disabled>Disparar</button></td>
+        </tr>
+        <tr>
+          <td><strong>Flood de conexiones</strong></td>
+          <td class="nota">p3, p5 sesiones y p8 uso de limites</td>
+          <td id="estado-conexiones"><span class="chip espera">inactivo</span></td>
+          <td><button class="stress" data-tipo="conexiones" disabled>Disparar</button></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="acciones">
+      <button class="secundario" id="botonDetener" disabled>Detener todo</button>
+      <button class="secundario" id="botonLimpiar" disabled>Limpiar objetos CLOUDCR_STRESS_*</button>
+    </div>
+    <div id="avisoStress"></div>
+  </section>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function avisar(donde, mensaje, ok) {
+  $(donde).innerHTML = `<div class="aviso ${ok ? 'ok' : 'mal'}">${mensaje}</div>`;
+}
+
+async function pedir(ruta, opciones) {
+  const res = await fetch(ruta, opciones);
+  const cuerpo = res.status === 204 ? null : await res.json();
+  if (!res.ok) throw new Error(cuerpo?.error ?? `Error ${res.status}`);
+  return cuerpo;
+}
+
+// ---------------------------------------------------------------- registro
+
+$('formulario').addEventListener('submit', async (evento) => {
+  evento.preventDefault();
+  $('botonRegistrar').disabled = true;
+  $('avisoRegistro').innerHTML = '';
+
+  const datos = Object.fromEntries(
+    ['nombre', 'motor', 'host', 'puerto', 'servicio', 'usuario', 'contrasena',
+     'usuario_stress', 'contrasena_stress'].map((campo) => [campo, $(campo).value])
+  );
+  datos.puerto = Number(datos.puerto);
+
+  try {
+    const r = await pedir('/registrar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos),
+    });
+    const prueba = r.collector?.prueba ?? {};
+    const faltantes = prueba.variables_faltantes ?? [];
+    avisar('avisoRegistro',
+      `Registrada. Oracle respondio con ${prueba.variables_leidas ?? 0} de 25 variables.`
+      + (faltantes.length ? `\nSin leer (revise privilegios): ${faltantes.join(', ')}` : '')
+      + `\nStress: ${r.stress}`, true);
+    cargarBases();
+    cargarStress();
+  } catch (error) {
+    avisar('avisoRegistro', error.message, false);
+  } finally {
+    $('botonRegistrar').disabled = false;
+  }
+});
+
+// ------------------------------------------------------------------ bases
+
+async function cargarBases() {
+  const cuerpo = $('tablaBases');
+  try {
+    const { bases, estado } = await pedir('/bases');
+    if (!bases.length) {
+      cuerpo.innerHTML = '<tr><td colspan="5" class="nota">Ninguna base registrada todavia.</td></tr>';
+      return;
+    }
+    cuerpo.innerHTML = bases.map((b) => {
+      const e = estado[b.nombre] ?? {};
+      const chip = e.ok === undefined ? '<span class="chip espera">sin ciclos</span>'
+                 : e.ok ? `<span class="chip ok">${e.momento ?? 'ok'}</span>`
+                        : `<span class="chip mal">${e.detalle ?? 'error'}</span>`;
+      return `<tr>
+        <td><strong>${b.nombre}</strong><br><span class="nota">${b.motor} · ${b.usuario}</span></td>
+        <td class="nota">${b.host}:${b.puerto}/${b.servicio}</td>
+        <td>${chip}</td>
+        <td>${e.isbd ?? '—'}</td>
+        <td>${e.alertas ?? '—'}</td>
+      </tr>`;
+    }).join('');
+  } catch (error) {
+    cuerpo.innerHTML = `<tr><td colspan="5" class="aviso mal">${error.message}</td></tr>`;
+  }
+}
+
+// ----------------------------------------------------------------- stress
+
+async function cargarStress() {
+  try {
+    const { configurado, mecanismos } = await pedir('/stress');
+    document.querySelectorAll('button.stress').forEach((b) => { b.disabled = !configurado; });
+    $('botonDetener').disabled = !configurado;
+    $('botonLimpiar').disabled = !configurado;
+
+    for (const m of mecanismos) {
+      const celda = $(`estado-${m.tipo}`);
+      if (!celda) continue;
+      celda.innerHTML = m.activo
+        ? `<span class="chip mal">activo ${m.segundos_restantes}s</span><br><span class="nota">${m.detalle}</span>`
+        : `<span class="chip espera">inactivo</span>${m.detalle ? `<br><span class="nota">${m.detalle}</span>` : ''}`;
+    }
+  } catch (error) {
+    avisar('avisoStress', error.message, false);
+  }
+}
+
+document.querySelectorAll('button.stress').forEach((boton) => {
+  boton.addEventListener('click', async () => {
+    $('avisoStress').innerHTML = '';
+    try {
+      await pedir(`/stress/${boton.dataset.tipo}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          duracion: Number($('duracion').value),
+          intensidad: Number($('intensidad').value),
+        }),
+      });
+      avisar('avisoStress', `Stress '${boton.dataset.tipo}' lanzado.`, true);
+    } catch (error) {
+      avisar('avisoStress', error.message, false);
+    }
+    cargarStress();
+  });
+});
+
+$('botonDetener').addEventListener('click', async () => {
+  try {
+    const r = await pedir('/stress/detener', { method: 'POST' });
+    avisar('avisoStress', `Detenidos: ${r.detenidos.join(', ') || 'ninguno activo'}`, true);
+  } catch (error) { avisar('avisoStress', error.message, false); }
+  cargarStress();
+});
+
+$('botonLimpiar').addEventListener('click', async () => {
+  if (!confirm('Se eliminaran las tablas y el tablespace CLOUDCR_STRESS_*. ¿Continuar?')) return;
+  try {
+    const r = await pedir('/stress/limpiar', { method: 'POST' });
+    avisar('avisoStress', Object.entries(r).map(([k, v]) => `${k}: ${v}`).join('\n'), true);
+  } catch (error) { avisar('avisoStress', error.message, false); }
+  cargarStress();
+});
+
+// ------------------------------------------------------------------ caida
+
+$('botonCaida').addEventListener('click', async () => {
+  $('avisoCaida').innerHTML = '';
+  try {
+    await pedir('/caida', { method: 'POST' });
+    avisar('avisoCaida', 'Caída simulada: el collector dejó de leer la base.', true);
+  } catch (error) {
+    avisar('avisoCaida', error.message, false);
+  }
+  cargarBases();
+});
+
+$('botonRestaurar').addEventListener('click', async () => {
+  $('avisoCaida').innerHTML = '';
+  try {
+    await pedir('/restaurar', { method: 'POST' });
+    avisar('avisoCaida', 'Base restaurada: volverá en línea en el próximo ciclo.', true);
+  } catch (error) {
+    avisar('avisoCaida', error.message, false);
+  }
+  cargarBases();
+});
+
+cargarBases();
+cargarStress();
+setInterval(() => { cargarBases(); cargarStress(); }, 3000);
+</script>
+</body>
+</html>

@@ -1,79 +1,103 @@
-import { useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import {
-  Alert, Box, Button, Container, Stack, Typography,
+  Alert, Box, Button, Chip, Container, Stack, Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DnsIcon from '@mui/icons-material/Dns';
 import MemoryIcon from '@mui/icons-material/Memory';
 import StorageIcon from '@mui/icons-material/Storage';
+import SensorsIcon from '@mui/icons-material/Sensors';
 import { CardsSkeleton } from '../../../common/components/loading/Skeletons.jsx';
 import IndiceSaludCard from '../components/IndiceSaludCard.jsx';
 import ComponenteCard from '../components/ComponenteCard.jsx';
 import AlertasPanel from '../components/AlertasPanel.jsx';
-import { getIndiceSalud, getAlertasSalud } from '../services/monitor.js';
+import HistoricoChart from '../components/HistoricoChart.jsx';
+import useSondeo from '../hooks/useSondeo.js';
+import { REFRESCO_MS } from '../lib/refresco.js';
+import { getIndiceSalud, getAlertasSalud, getHistoricoSalud } from '../services/monitor.js';
 
 /**
- * Fase 2 - Monitor de Salud de Base de Datos. Prueba de concepto de
- * front + back con datos simulados (ver claude.md): no toca PostgreSQL ni
- * una conexion Oracle real, solo maqueta el ISBD = Wp*IP + Wm*IM + Wa*IA
- * propuesto por el documento del profesor para poder mostrarlo al equipo.
- * Recibe baseDatosId desde /monitor/:baseDatosId (elegido en
- * MonitorSelectorPage) para identificar cual base se esta mostrando; los
- * valores simulados de componentes/ISBD aun no cambian por base.
+ * Fase 2 - Monitor de Salud de Base de Datos.
+ *
+ * Muestra datos en vivo: el collector local lee Oracle y empuja un snapshot a
+ * POST /monitor/ingesta, y esta pantalla vuelve a consultar cada REFRESCO_MS
+ * (VITE_MONITOR_REFRESCO_MS). El ISBD = Wp*IP + Wm*IM + Wa*IA lo calcula el
+ * backend a partir de las mediciones guardadas, no esta quemado en el cliente.
+ *
+ * Las alertas se listan aparte del indice a proposito: el documento base exige
+ * que una alerta critica individual no quede oculta detras de un promedio
+ * ponderado alto.
  */
 export default function MonitorPage() {
   const { baseDatosId } = useParams();
-  const [baseDatosCargada, setBaseDatosCargada] = useState(baseDatosId);
-  const [indice, setIndice] = useState(null);
-  const [alertas, setAlertas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  if (baseDatosCargada !== baseDatosId) {
-    setBaseDatosCargada(baseDatosId);
-    setLoading(true);
-  }
+  const consultar = useCallback(
+    () => Promise.all([
+      getIndiceSalud(baseDatosId),
+      getAlertasSalud(baseDatosId),
+      getHistoricoSalud(baseDatosId),
+    ]),
+    [baseDatosId],
+  );
 
-  useEffect(() => {
-    let activo = true;
-
-    Promise.all([getIndiceSalud(baseDatosId), getAlertasSalud(baseDatosId)])
-      .then(([i, a]) => {
-        if (!activo) return;
-        setIndice(i);
-        setAlertas(a);
-      })
-      .catch((e) => activo && setError(e.message))
-      .finally(() => activo && setLoading(false));
-
-    return () => {
-      activo = false;
-    };
-  }, [baseDatosId]);
+  const { datos, error, cargando } = useSondeo(consultar, [baseDatosId]);
+  const [indice, alertas, historico] = datos ?? [null, [], []];
+  const caida = indice?.base_datos?.caida === true;
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
-      <Stack direction="row" sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <Button component={RouterLink} to="/monitor" startIcon={<ArrowBackIcon />} variant="outlined">
           Volver a bases de datos
         </Button>
+        <Chip
+          icon={<SensorsIcon />}
+          label={caida ? 'Sin conexión' : `En vivo · cada ${Math.round(REFRESCO_MS / 1000)} s`}
+          color={caida || error ? 'default' : 'success'}
+          variant="outlined"
+          size="small"
+        />
       </Stack>
 
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
         Monitor de Salud de Base de Datos
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {indice?.base_datos?.nombre ?? 'Prueba de concepto — Fase 2'}
+        {indice?.base_datos?.nombre ?? 'Cargando…'}
+        {indice?.actualizado_en && ` · última medición ${indice.actualizado_en}`}
       </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
-          No se pudo cargar el monitor: {error}
+      {caida && (
+        <Alert
+          severity="error"
+          icon={false}
+          sx={{
+            mb: 3, borderRadius: 2, bgcolor: '#1c1c1c', color: '#fff',
+            '& .MuiAlert-message': { width: '100%' },
+          }}
+        >
+          <Typography sx={{ fontWeight: 800, fontSize: 18 }}>
+            ⬛ Base de datos caída — sin conexión
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.85 }}>
+            {indice.base_datos.caida_motivo || 'El collector no puede leer la instancia.'}
+            {' '}Los valores mostrados son la última lectura antes de la caída.
+          </Typography>
         </Alert>
       )}
 
-      {loading ? (
+      {error && !caida && (
+        <Alert severity={indice ? 'warning' : 'error'} sx={{ mb: 3, borderRadius: 2 }}>
+          {indice
+            // Ya hay datos en pantalla: se avisa que estan quedando viejos,
+            // pero no se borra lo que el evaluador esta viendo.
+            ? `No se pudo refrescar el monitor (${error}). Se muestra la última lectura recibida.`
+            : `No se pudo cargar el monitor: ${error}`}
+        </Alert>
+      )}
+
+      {cargando ? (
         <Box sx={{ display: 'grid', gap: 2 }}>
           <CardsSkeleton cantidad={1} alto={160} />
           <CardsSkeleton cantidad={3} alto={220} />
@@ -114,6 +138,13 @@ export default function MonitorPage() {
               Alertas por componente
             </Typography>
             <AlertasPanel alertas={alertas} />
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+              Evolución
+            </Typography>
+            <HistoricoChart historico={historico} />
           </Box>
         </Box>
       ) : null}

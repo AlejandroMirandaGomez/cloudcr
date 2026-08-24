@@ -104,12 +104,18 @@ $router->get('/cuestionarios/{id}/no-aplicables', [$reportes, 'noAplicables']);
 $router->get('/cuestionarios/{id}/madurez', [$reportes, 'madurez']);
 $router->get('/cuestionarios/{id}/riesgo', [$reportes, 'riesgo']);
 
-// ---------------------- Fase 2 - Monitor de Salud (datos simulados por ahora)
-// Nota: restringido a 'evaluador' solo en frontend (ProtectedRoute); el backend
-// todavia no valida sesion/rol en ningun endpoint (ver docs/Gaps.md).
+// ------------------------------------------- Fase 2 - Monitor de Salud
+// Lectura: restringido a 'evaluador' solo en frontend (ProtectedRoute); el
+// backend todavia no valida sesion/rol en ningun endpoint (ver docs/Gaps.md).
 $router->get('/monitor/bases-datos', [$monitor, 'basesDatos']);
 $router->get('/monitor/indice', [$monitor, 'indice']);
 $router->get('/monitor/alertas', [$monitor, 'alertas']);
 $router->get('/monitor/historico', [$monitor, 'historico']);
+$router->get('/monitor/variables', [$monitor, 'variables']);
+
+// Escritura: la usa el collector local, autenticado con el secreto compartido
+// X-Collector-Token. Es el unico endpoint del API que exige credencial propia.
+$router->post('/monitor/ingesta', [$monitor, 'ingesta']);
+$router->post('/monitor/estado-caida', [$monitor, 'estadoCaida']);
 
 return $router;

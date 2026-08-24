@@ -23,6 +23,9 @@ final class Config
         'DB_SSLMODE' => 'prefer',
         'APP_DEBUG' => 'true',
         'CORS_ORIGIN' => '*',
+        // Secreto compartido con el collector local del monitor (Fase 2). Vacio
+        // por defecto a proposito: sin el, POST /monitor/ingesta queda cerrado.
+        'MONITOR_COLLECTOR_TOKEN' => '',
     ];
 
     public static function load(?string $envPath = null): void

@@ -1,0 +1,6 @@
+# Mock client local del Monitor de Salud (Fase 2).
+# Instalar con:  pip install -r agente_local/requirements.txt
+oracledb>=2.0        # ejecuta el stress directo contra Oracle
+requests>=2.31       # habla con el collector local
+Flask>=3.0           # sirve la pagina y su API
+python-dotenv>=1.0   # lectura de agente_local/.env

@@ -3,7 +3,8 @@ import { Box, Button, Chip, Divider, Paper, Stack, Typography } from '@mui/mater
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import { getComponente, getVariable } from '../data/variablesMonitor.js';
-import { estadoDeVariable } from '../lib/estadoVariable.js';
+import useMediciones from '../hooks/useMediciones.js';
+import { estadoDeVariable, formatearValor } from '../lib/estadoVariable.js';
 import { formatearPeso } from '../lib/pesos.js';
 import EstadoChip from '../components/EstadoChip.jsx';
 
@@ -26,6 +27,8 @@ export default function VariableDetallePage() {
   const componente = getComponente(componenteId);
   const variable = getVariable(componenteId, variableId);
   const volverA = `/monitor/${baseDatosId}/${componenteId}`;
+  // Valor real medido por el collector, refrescado solo como el resto del monitor.
+  const { mediciones } = useMediciones(baseDatosId, componenteId);
 
   if (!componente || !variable) {
     return (
@@ -41,7 +44,7 @@ export default function VariableDetallePage() {
     );
   }
 
-  const estado = estadoDeVariable(variable, baseDatosId);
+  const estado = estadoDeVariable(variable, mediciones);
   const esFijo = variable.sentido === 'fijo';
 
   return (
@@ -78,15 +81,19 @@ export default function VariableDetallePage() {
         <Divider sx={{ my: 3 }} />
 
         <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>
-          Valor actual (simulado)
+          Valor actual
         </Typography>
         <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: esFijo ? 0 : 1 }}>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            {estado.valor} {estado.unidad}
+            {formatearValor(estado)}
           </Typography>
-          {estado.estado
-            ? <EstadoChip color={estado.color} label={estado.estado} />
-            : <Chip label="Valor de configuración" size="small" variant="outlined" />}
+          {estado.estado && <EstadoChip color={estado.color} label={estado.estado} />}
+          {!estado.medido && (
+            <Chip label="Sin dato del collector" size="small" variant="outlined" />
+          )}
+          {estado.medido && esFijo && (
+            <Chip label="Valor de configuración" size="small" variant="outlined" />
+          )}
         </Stack>
         {!esFijo && (
           <Typography variant="caption" color="text.secondary">

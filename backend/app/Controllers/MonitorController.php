@@ -4,16 +4,25 @@ declare(strict_types=1);
 
 namespace CloudCR\Controllers;
 
+use CloudCR\Core\HttpException;
 use CloudCR\Core\Request;
 use CloudCR\Core\Response;
+use CloudCR\Core\Validator;
+use CloudCR\Monitor\AutenticacionCollector;
 use CloudCR\Repositories\MonitorRepository;
 
 /**
- * Fase 2 - Monitor de Salud de Base de Datos. Responde con datos simulados
- * (ver MonitorRepository) mientras se confirma la conexion Oracle real.
+ * Fase 2 - Monitor de Salud de Base de Datos.
+ *
+ * Los GET sirven al dashboard el ultimo estado guardado; el POST /ingesta es
+ * por donde el collector local (collector/) empuja las mediciones que toma de
+ * Oracle. El backend nunca se conecta a Oracle: solo recibe, calcula y sirve.
  */
 final class MonitorController extends BaseController
 {
+    /** Motores aceptados al registrar una base monitoreada. */
+    private const MOTORES = ['Oracle', 'PostgreSQL', 'MySQL', 'SQL Server'];
+
     public function __construct(private MonitorRepository $repo = new MonitorRepository())
     {
     }
@@ -35,6 +44,84 @@ final class MonitorController extends BaseController
 
     public function historico(Request $r): void
     {
-        Response::ok($this->repo->historico($r->query('baseDatosId')));
+        Response::ok($this->repo->historico($r->query('baseDatosId'), $r->query('limite')));
+    }
+
+    public function variables(Request $r): void
+    {
+        Response::ok($this->repo->variables($r->query('baseDatosId'), $r->query('componente')));
+    }
+
+    /**
+     * Recibe un snapshot del collector local. Protegido con el secreto
+     * compartido X-Collector-Token (ver AutenticacionCollector).
+     *
+     * Cuerpo esperado:
+     *   {
+     *     "base_datos": {"nombre":"XE", "motor":"Oracle",
+     *                    "host":"localhost", "puerto":1521, "servicio":"XEPDB1"},
+     *     "mediciones": {"p1":210, "p2":500, ..., "a8":0}
+     *   }
+     */
+    public function ingesta(Request $r): void
+    {
+        AutenticacionCollector::exigirToken();
+
+        $body = $r->body();
+
+        $baseDatos = $body['base_datos'] ?? null;
+        if (!is_array($baseDatos)) {
+            throw HttpException::validacion(['base_datos' => 'Es obligatorio y debe ser un objeto.']);
+        }
+
+        $v = new Validator($baseDatos);
+        $nombre   = $v->requiredString('nombre', 100);
+        $motor    = $v->optionalEnum('motor', self::MOTORES);
+        $host     = $v->optionalText('host');
+        $servicio = $v->optionalText('servicio');
+        $puerto   = isset($baseDatos['puerto']) && $baseDatos['puerto'] !== ''
+            ? $v->entero('puerto', 1, 65535)
+            : null;
+        $v->assert();
+
+        $mediciones = $body['mediciones'] ?? null;
+        if (!is_array($mediciones) || $mediciones === []) {
+            throw HttpException::validacion(['mediciones' => 'Es obligatorio y debe traer al menos una variable.']);
+        }
+
+        $resultado = $this->repo->registrarSnapshot([
+            'base_datos' => [
+                'nombre'   => $nombre,
+                'motor'    => $motor ?? 'Oracle',
+                'host'     => $host !== null ? mb_substr($host, 0, 150) : null,
+                'puerto'   => $puerto,
+                'servicio' => $servicio !== null ? mb_substr($servicio, 0, 100) : null,
+            ],
+            'mediciones' => $mediciones,
+        ]);
+
+        Response::created($resultado, '/monitor/indice?baseDatosId=' . $resultado['base_datos_id']);
+    }
+
+    /**
+     * Marca una base como caida (o la restaura). La usa el collector cuando no
+     * puede leer la instancia. Protegido con el mismo token que la ingesta.
+     *
+     * Cuerpo: {"nombre": "...", "caida": true, "motivo": "..."}
+     */
+    public function estadoCaida(Request $r): void
+    {
+        AutenticacionCollector::exigirToken();
+
+        $body   = $r->body();
+        $nombre = $body['nombre'] ?? null;
+        if (!is_string($nombre) || trim($nombre) === '') {
+            throw HttpException::validacion(['nombre' => 'Es obligatorio.']);
+        }
+
+        $caida  = filter_var($body['caida'] ?? true, FILTER_VALIDATE_BOOLEAN);
+        $motivo = isset($body['motivo']) && is_string($body['motivo']) ? $body['motivo'] : null;
+
+        Response::ok($this->repo->marcarCaida(trim($nombre), $caida, $motivo));
     }
 }
