@@ -99,6 +99,14 @@ curl http://localhost:8000/salud
 
 Detalle completo (WAMP, virtual host, troubleshooting) en `backend/README.md`.
 
+> Si más adelante se levanta el monitor con `collector`/`agente_local` en
+> Docker (§4.3.1), este backend hay que reiniciarlo con `-S 0.0.0.0:8000` en
+> vez de `localhost:8000` — en Windows `localhost` resuelve solo a `::1`
+> (loopback), que un contenedor no puede alcanzar. El síntoma si se olvida
+> este paso: el collector lee Oracle bien pero falla al empujar el snapshot
+> ("Network is unreachable"), y `/monitor/bases-datos` se queda con el
+> último dato bueno sin actualizarse.
+
 > El servidor embebido de PHP (`php -S`) relee `config/.env` en cada
 > request (no hay proceso persistente cacheando config), así que editar
 > `backend/config/.env` con el backend ya corriendo **no** requiere
@@ -231,6 +239,79 @@ python -m agente_local    # pagina en http://127.0.0.1:8200
 Sin `MONITOR_COLLECTOR_TOKEN` configurado en el backend, `POST /monitor/ingesta`
 responde `503` a propósito (falla cerrado). `401` significa que el token no
 coincide entre `collector/.env` y `backend/config/.env`.
+
+#### 4.3.1 Alternativa si Smart App Control bloquea `oracledb` (Windows)
+
+Síntoma: `python -m collector` (o `agente_local`) falla con
+
+```
+ImportError: DLL load failed while importing base_impl: Una directiva de
+Control de aplicaciones bloqueó este archivo.
+```
+
+Confirmar la causa exacta antes de asumir nada (puede ser otra cosa):
+
+```powershell
+Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-CodeIntegrity/Operational'; StartTime=(Get-Date).AddMinutes(-10)} |
+  Select-Object -First 5 TimeCreated, Id, Message
+```
+
+Buscar un evento "Smart App Control Block" sobre
+`oracledb\base_impl.cp3xx-win_amd64.pyd`. Es una función de Windows 11 que
+arranca en modo "evaluación" (deja correr el binario nuevo la primera vez) y
+más tarde, sin avisar, pasa a bloquearlo — por eso puede haber funcionado en
+una sesión anterior y fallar ahora sin que nada del proyecto haya cambiado.
+
+**No desactivar Smart App Control para resolver esto**: es una decisión de
+seguridad del usuario, irreversible sin reinstalar Windows. La alternativa
+que no la toca es correr `collector` y `agente_local` en **Docker** en vez de
+Python nativo (WSL sirve igual pero requiere `sudo apt install python3-pip`
+interactivo, que un agente no puede completar solo).
+
+Los archivos ya existen en `docker/` (`monitor.Dockerfile` +
+`docker-compose.yml`) si se corrió este runbook antes; si no, crearlos
+siguiendo el mismo patrón: una imagen `python:3.12-slim` con los dos `requirements.txt`
+instalados y el código de `collector/` + `agente_local/` copiado, arrancada
+con `python -c "...crear_app(...).run(host='0.0.0.0', ...)"` en vez de
+`python -m collector` (los `__main__.py` del proyecto bindean a `127.0.0.1`
+a propósito — fuera de la máquina eso incluye "fuera del contenedor", así
+que hay que llamar a `crear_app` directo con `host='0.0.0.0'`).
+
+Tres detalles de red que rompen si se copian los comandos nativos tal cual:
+
+1. **El backend debe escuchar en `0.0.0.0`, no `localhost`** (si no, el
+   contenedor lo ve como "connection refused"):
+   ```powershell
+   php -S 0.0.0.0:8000 -t backend/public
+   ```
+2. **`collector/config.py` rechaza `MONITOR_API_URL` si no contiene
+   literalmente `localhost` o `127.0.0.1`** (asume que si no, es un host
+   remoto real y el token viajaría en claro). `host.docker.internal` no sirve
+   para esa variable puntual — hay que darle un alias en `extra_hosts` que sí
+   contenga esa palabra, por ejemplo `localhost-host:host-gateway`, y usar
+   `http://localhost-host:8000`.
+3. **La salvaguarda de `agente_local/stress.py`** compara el host contra las
+   interfaces de red del contenedor, no del Windows real — `host.docker.internal`
+   nunca va a matchear, así que hace falta `PERMITIR_REMOTO=true` en el
+   `agente_local` del compose (a propósito: sigue siendo la misma máquina
+   física, solo que el contenedor la ve como un peer de red distinto).
+
+Levantar (el token es el mismo que `MONITOR_COLLECTOR_TOKEN` en
+`backend/config/.env`; `docker/.env` está en `.gitignore`, nunca commitear
+el token real en `docker-compose.yml`):
+
+```powershell
+cd docker
+cp .env.example .env   # completar MONITOR_COLLECTOR_TOKEN antes de seguir
+docker compose build
+docker compose up -d
+cd ..
+```
+
+Registro y todo lo demás sigue igual, salvo que el "Host" a usar es
+`host.docker.internal` en vez de `localhost`/la IP de LAN, y el usuario de
+stress necesita `PERMITIR_REMOTO=true` como se explicó arriba. Comandos
+completos y probados para copiar y pegar en `README.md` § "Arranque rápido".
 
 ### 4.4 Registrar la base en el dashboard
 
