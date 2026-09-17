@@ -1,0 +1,49 @@
+services:
+  collector:
+    build:
+      context: ..
+      dockerfile: docker/monitor.Dockerfile
+    command: >
+      python -c "from collector.app import crear_app; from collector.config import Config;
+      c = Config.desde_entorno(); crear_app(c).run(host='0.0.0.0', port=c.puerto, use_reloader=False)"
+    environment:
+      # collector/config.py exige que la URL contenga "localhost" o "127.0.0.1"
+      # (si no, asume un host remoto real y bloquea por token en claro). Como
+      # el backend vive en el mismo Windows fisico, se le da un alias que
+      # cumple ese chequeo en vez de tocar la validacion del proyecto.
+      MONITOR_API_URL: http://localhost-host:8000
+      MONITOR_COLLECTOR_TOKEN: ${MONITOR_COLLECTOR_TOKEN}
+      INTERVALO_SEGUNDOS: "5"
+      COLLECTOR_PUERTO: "8100"
+      REINTENTOS: "2"
+      TIMEOUT_SEGUNDOS: "15"
+    ports:
+      - "8100:8100"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "localhost-host:host-gateway"
+    restart: unless-stopped
+
+  agente_local:
+    build:
+      context: ..
+      dockerfile: docker/monitor.Dockerfile
+    command: >
+      python -c "from agente_local.app import crear_app; from agente_local.config import Config;
+      c = Config.desde_entorno(); crear_app(c).run(host='0.0.0.0', port=c.puerto, use_reloader=False)"
+    environment:
+      COLLECTOR_URL: http://collector:8100
+      AGENTE_LOCAL_PUERTO: "8200"
+      TIMEOUT_SEGUNDOS: "20"
+      # El contenedor ve a Oracle (que corre en el host Windows) como un peer
+      # de red distinto via host.docker.internal, no como "esta misma maquina"
+      # (socket.gethostname() adentro del contenedor no matchea esa IP). Es la
+      # misma maquina fisica en la practica, asi que se habilita a proposito.
+      PERMITIR_REMOTO: "true"
+    ports:
+      - "8200:8200"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - collector
+    restart: unless-stopped
