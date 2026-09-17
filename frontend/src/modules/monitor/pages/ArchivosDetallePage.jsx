@@ -29,7 +29,12 @@ export default function ArchivosDetallePage() {
 
   const columns = useMemo(
     () => [
-      { accessorKey: 'variable', header: 'Variable', size: 200 },
+      {
+        id: 'variable',
+        header: 'Variable',
+        accessorFn: (row) => `${row.id}: ${row.variable}`,
+        size: 200,
+      },
       { accessorKey: 'descripcion', header: 'Descripción', size: 220 },
       { accessorKey: 'fuente', header: 'Fuente', size: 260 },
       { accessorKey: 'como', header: 'Cómo', size: 90 },
