@@ -34,3 +34,16 @@ export const getUmbralesIndice = (baseDatosId) =>
 
 export const guardarUmbralesIndice = (baseDatosId, umbrales) =>
   api.put('/monitor/umbrales-indice', { baseDatosId, umbrales });
+
+/**
+ * Rubrica de peso: cuatro preguntas por variable (1-4) de las que se deriva
+ * el peso sugerido dentro del componente. Ver backend/app/Monitor/RubricaPeso.php.
+ */
+export const getRubricaPeso = (baseDatosId, componente) =>
+  conBaseDatosId('/monitor/rubrica-peso', baseDatosId, { componente });
+
+export const guardarRubricaPeso = (baseDatosId, variableCodigo, respuestas) =>
+  api.put('/monitor/rubrica-peso', { baseDatosId, variableCodigo, respuestas });
+
+export const aplicarRubricaPeso = (baseDatosId, componente) =>
+  api.post('/monitor/rubrica-peso/aplicar', { baseDatosId, componente });

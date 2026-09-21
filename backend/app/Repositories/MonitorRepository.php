@@ -7,6 +7,7 @@ namespace CloudCR\Repositories;
 use CloudCR\Core\Database;
 use CloudCR\Core\HttpException;
 use CloudCR\Monitor\CalculadoraSalud;
+use CloudCR\Monitor\RubricaPeso;
 use PDO;
 
 /**
@@ -283,7 +284,7 @@ final class MonitorRepository extends BaseRepository
         $params['base'] = $base['id'];
 
         $sql = 'SELECT v.codigo, v.componente, v.orden, v.variable, v.descripcion, v.fuente,
-                       v.unidad, v.sentido, v.justificacion, v.penaliza, m.valor,
+                       v.proceso_padre, v.unidad, v.sentido, v.justificacion, v.penaliza, m.valor,
                        COALESCE(a.limite_advertencia, v.limite_advertencia) AS limite_advertencia,
                        COALESCE(a.limite_critico, v.limite_critico)         AS limite_critico,
                        COALESCE(a.peso, v.peso)                             AS peso,
@@ -314,6 +315,7 @@ final class MonitorRepository extends BaseRepository
                 'variable'           => $f['variable'],
                 'descripcion'        => $f['descripcion'],
                 'fuente'             => $f['fuente'],
+                'proceso_padre'      => $f['proceso_padre'],
                 'unidad'             => $f['unidad'],
                 'sentido'            => $f['sentido'],
                 'limite_advertencia' => $definicion['limite_advertencia'],
@@ -540,6 +542,181 @@ final class MonitorRepository extends BaseRepository
         });
 
         return $this->variables((string) $base['id'], $componente);
+    }
+
+    // ----------------------------------------------------------- rubrica peso
+
+    /**
+     * Respuestas de la rubrica de peso de un componente para una base, con el
+     * puntaje de cada variable y el peso que resultaria de aplicarla, junto
+     * al peso vigente. Las variables sin responder entran con puntaje neutro
+     * y se listan en `faltantes`.
+     */
+    public function rubricaPeso(?string $baseDatosId, ?string $componente): array
+    {
+        if (!in_array($componente, CalculadoraSalud::COMPONENTES, true)) {
+            throw HttpException::validacion(['componente' => 'Debe ser procesos, memoria o archivos.']);
+        }
+
+        $base  = $this->baseDatos($baseDatosId);
+        $filas = $this->run(
+            'SELECT v.codigo, v.variable, v.sentido,
+                    COALESCE(a.peso, v.peso) AS peso_actual,
+                    r.impacto, r.probabilidad, r.tiempo_reaccion, r.cobertura,
+                    r.actualizado_en
+             FROM Monitor_Variables v
+             LEFT JOIN Monitor_Ajustes_Variable a
+                    ON a.variable_codigo = v.codigo AND a.base_datos_id = :base
+             LEFT JOIN Monitor_Rubrica_Peso r
+                    ON r.variable_codigo = v.codigo AND r.base_datos_id = :base
+             WHERE v.componente = :componente
+             ORDER BY v.orden',
+            ['base' => $base['id'], 'componente' => $componente]
+        )->fetchAll();
+
+        $puntajes  = [];
+        $faltantes = [];
+        $variables = [];
+
+        foreach ($filas as $f) {
+            $respondida = $f['impacto'] !== null;
+            $respuestas = $respondida
+                ? [
+                    'impacto'         => (int) $f['impacto'],
+                    'probabilidad'    => (int) $f['probabilidad'],
+                    'tiempo_reaccion' => (int) $f['tiempo_reaccion'],
+                    'cobertura'       => (int) $f['cobertura'],
+                ]
+                : null;
+
+            $puntajes[$f['codigo']] = $respondida ? RubricaPeso::puntaje($respuestas) : RubricaPeso::PUNTAJE_NEUTRO;
+            if (!$respondida) {
+                $faltantes[] = $f['codigo'];
+            }
+
+            $variables[$f['codigo']] = [
+                'codigo'         => $f['codigo'],
+                'variable'       => $f['variable'],
+                'sentido'        => $f['sentido'],
+                'respuestas'     => $respuestas,
+                'puntaje'        => $puntajes[$f['codigo']],
+                'peso_actual'    => (float) $f['peso_actual'],
+                'peso_sugerido'  => null,
+                'actualizado_en' => $f['actualizado_en'],
+            ];
+        }
+
+        foreach (RubricaPeso::pesosSugeridos($puntajes) as $codigo => $peso) {
+            $variables[$codigo]['peso_sugerido'] = $peso;
+        }
+
+        return [
+            'base_datos' => ['id' => $base['id'], 'nombre' => $base['nombre']],
+            'componente' => $componente,
+            'completo'   => $faltantes === [],
+            'faltantes'  => $faltantes,
+            'variables'  => array_values($variables),
+        ];
+    }
+
+    /**
+     * Guarda las cuatro respuestas de la rubrica para una variable de una
+     * base y devuelve la rubrica completa de su componente.
+     *
+     * @param array<string,mixed> $respuestas {"impacto": 1..4, "probabilidad": 1..4, ...}
+     */
+    public function guardarRubricaPeso(?string $baseDatosId, string $codigo, array $respuestas): array
+    {
+        $base     = $this->baseDatos($baseDatosId);
+        $catalogo = $this->catalogo();
+
+        if (!isset($catalogo[$codigo])) {
+            throw HttpException::validacion(['variableCodigo' => 'No existe esa variable en Monitor_Variables.']);
+        }
+
+        $errores = [];
+        $limpias = [];
+        foreach (RubricaPeso::PREGUNTAS as $pregunta) {
+            $valor = $respuestas[$pregunta] ?? null;
+            if (!is_numeric($valor)
+                || (float) $valor !== floor((float) $valor)
+                || (int) $valor < RubricaPeso::RESPUESTA_MINIMA
+                || (int) $valor > RubricaPeso::RESPUESTA_MAXIMA
+            ) {
+                $errores["respuestas.$pregunta"] = sprintf(
+                    'Debe ser un entero entre %d y %d.',
+                    RubricaPeso::RESPUESTA_MINIMA,
+                    RubricaPeso::RESPUESTA_MAXIMA
+                );
+                continue;
+            }
+            $limpias[$pregunta] = (int) $valor;
+        }
+
+        if ($errores !== []) {
+            throw HttpException::validacion($errores);
+        }
+
+        $this->run(
+            'INSERT INTO Monitor_Rubrica_Peso
+                 (base_datos_id, variable_codigo, impacto, probabilidad, tiempo_reaccion, cobertura)
+             VALUES (:base, :codigo, :impacto, :probabilidad, :tiempo, :cobertura)
+             ON CONFLICT (base_datos_id, variable_codigo) DO UPDATE SET
+                 impacto         = EXCLUDED.impacto,
+                 probabilidad    = EXCLUDED.probabilidad,
+                 tiempo_reaccion = EXCLUDED.tiempo_reaccion,
+                 cobertura       = EXCLUDED.cobertura,
+                 actualizado_en  = now()',
+            [
+                'base'         => $base['id'],
+                'codigo'       => $codigo,
+                'impacto'      => $limpias['impacto'],
+                'probabilidad' => $limpias['probabilidad'],
+                'tiempo'       => $limpias['tiempo_reaccion'],
+                'cobertura'    => $limpias['cobertura'],
+            ]
+        );
+
+        return $this->rubricaPeso((string) $base['id'], $catalogo[$codigo]['componente']);
+    }
+
+    /**
+     * Escribe como peso vigente el peso sugerido por la rubrica para todas
+     * las variables del componente. Conserva los umbrales ya ajustados; las
+     * variables sin ajuste previo quedan con umbrales NULL (= los del
+     * catalogo). Exige la rubrica completa: aplicar con puntajes neutros
+     * daria pesos que nadie decidio.
+     */
+    public function aplicarRubricaPeso(?string $baseDatosId, ?string $componente): array
+    {
+        $rubrica = $this->rubricaPeso($baseDatosId, $componente);
+
+        if (!$rubrica['completo']) {
+            throw HttpException::validacion([
+                'rubrica' => sprintf(
+                    'Faltan variables por responder: %s.',
+                    implode(', ', $rubrica['faltantes'])
+                ),
+            ]);
+        }
+
+        $baseId = $rubrica['base_datos']['id'];
+
+        Database::transaction(function (PDO $pdo) use ($baseId, $rubrica): void {
+            foreach ($rubrica['variables'] as $v) {
+                $this->run(
+                    'INSERT INTO Monitor_Ajustes_Variable
+                         (base_datos_id, variable_codigo, limite_advertencia, limite_critico, peso)
+                     VALUES (:base, :codigo, NULL, NULL, :peso)
+                     ON CONFLICT (base_datos_id, variable_codigo) DO UPDATE SET
+                         peso           = EXCLUDED.peso,
+                         actualizado_en = now()',
+                    ['base' => $baseId, 'codigo' => $v['codigo'], 'peso' => $v['peso_sugerido']]
+                );
+            }
+        });
+
+        return $this->variables((string) $baseId, $rubrica['componente']);
     }
 
     // ---------------------------------------------------------------- ingesta

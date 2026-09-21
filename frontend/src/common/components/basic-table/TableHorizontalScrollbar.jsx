@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/immutability */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Box } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -9,7 +10,14 @@ const MAX_SPEED = 24;
 
 export const H_SCROLLBAR_HEIGHT = 14;
 
+const COLORES = {
+    light: { track: 'rgba(0, 0, 0, 0.08)', thumb: 'rgba(0, 0, 0, 0.40)', thumbHover: 'rgba(0, 0, 0, 0.60)' },
+    dark: { track: 'rgba(255, 255, 255, 0.10)', thumb: 'rgba(255, 255, 255, 0.45)', thumbHover: 'rgba(255, 255, 255, 0.65)' },
+};
+
 export default function TableHorizontalScrollbar({ containerRef, onVisibilityChange }) {
+    const theme = useTheme();
+    const colores = COLORES[theme.palette.mode] ?? COLORES.light;
     const trackRef = useRef(null);
     const dragRef = useRef(null);
     const autoScrollRef = useRef({ selecting: false, pointerX: 0, rafId: 0, active: false });
@@ -116,6 +124,28 @@ export default function TableHorizontalScrollbar({ containerRef, onVisibilityCha
         }
     }, [containerRef, maybeStartAutoScroll, stopAutoScroll]);
 
+    // El contenedor lleva overflowX hidden en desktop (la barra nativa se
+    // reemplaza por esta), asi que el navegador no desplaza solo con la rueda:
+    // se traduce deltaX (trackpad) o shift+rueda a scrollLeft a mano.
+    const handleWheel = useCallback((event) => {
+        const container = containerRef?.current;
+        if (!container || container.scrollWidth <= container.clientWidth) return;
+        const delta = event.deltaX !== 0 ? event.deltaX : (event.shiftKey ? event.deltaY : 0);
+        if (delta === 0) return;
+        const max = container.scrollWidth - container.clientWidth;
+        const next = clamp(container.scrollLeft + delta, 0, max);
+        if (next === container.scrollLeft) return;
+        event.preventDefault();
+        container.scrollLeft = next;
+    }, [containerRef]);
+
+    useEffect(() => {
+        const container = containerRef?.current;
+        if (!container) return undefined;
+        container.addEventListener('wheel', handleWheel, { passive: false });
+        return () => container.removeEventListener('wheel', handleWheel);
+    }, [containerRef, handleWheel]);
+
     const handleDocumentMouseUp = useCallback(() => {
         autoScrollRef.current.selecting = false;
         stopAutoScroll();
@@ -197,7 +227,7 @@ export default function TableHorizontalScrollbar({ containerRef, onVisibilityCha
                 cursor: 'default',
                 touchAction: 'none',
                 userSelect: 'none',
-                backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                backgroundColor: colores.track,
             }}
         >
             <Box
@@ -214,10 +244,10 @@ export default function TableHorizontalScrollbar({ containerRef, onVisibilityCha
                     borderRadius: 4,
                     cursor: 'default',
                     touchAction: 'none',
-                    backgroundColor: 'rgba(0, 0, 0, 0.40)',
+                    backgroundColor: colores.thumb,
                     transition: 'background-color 120ms ease',
                     '&:hover': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.60)',
+                        backgroundColor: colores.thumbHover,
                     },
                 }}
             />

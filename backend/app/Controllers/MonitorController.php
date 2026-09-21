@@ -116,6 +116,57 @@ final class MonitorController extends BaseController
         Response::ok($this->repo->guardarUmbralesIndice($baseDatosId, $umbrales));
     }
 
+    public function rubricaPeso(Request $r): void
+    {
+        Response::ok($this->repo->rubricaPeso($r->query('baseDatosId'), $r->query('componente')));
+    }
+
+    /**
+     * Guarda las respuestas de la rubrica de peso de una variable.
+     *
+     * Cuerpo esperado:
+     *   {
+     *     "baseDatosId": 1,
+     *     "variableCodigo": "p4",
+     *     "respuestas": {"impacto": 4, "probabilidad": 3, "tiempo_reaccion": 3, "cobertura": 4}
+     *   }
+     */
+    public function guardarRubricaPeso(Request $r): void
+    {
+        $body       = $r->body();
+        $codigo     = $body['variableCodigo'] ?? null;
+        $respuestas = $body['respuestas'] ?? null;
+
+        if (!is_string($codigo) || $codigo === '') {
+            throw HttpException::validacion(['variableCodigo' => 'Es obligatorio.']);
+        }
+        if (!is_array($respuestas) || $respuestas === []) {
+            throw HttpException::validacion(['respuestas' => 'Es obligatorio.']);
+        }
+
+        $baseDatosId = $body['baseDatosId'] ?? null;
+        $baseDatosId = $baseDatosId === null ? null : (string) $baseDatosId;
+
+        Response::ok($this->repo->guardarRubricaPeso($baseDatosId, $codigo, $respuestas));
+    }
+
+    /**
+     * Aplica los pesos sugeridos por la rubrica a todas las variables del
+     * componente. Cuerpo: {"baseDatosId": 1, "componente": "procesos"}.
+     */
+    public function aplicarRubricaPeso(Request $r): void
+    {
+        $body        = $r->body();
+        $componente  = $body['componente'] ?? null;
+        $baseDatosId = $body['baseDatosId'] ?? null;
+        $baseDatosId = $baseDatosId === null ? null : (string) $baseDatosId;
+
+        Response::ok($this->repo->aplicarRubricaPeso(
+            $baseDatosId,
+            is_string($componente) ? $componente : null
+        ));
+    }
+
     /**
      * Recibe un snapshot del collector local. Protegido con el secreto
      * compartido X-Collector-Token (ver AutenticacionCollector).

@@ -51,5 +51,18 @@ export default function useAjustesVariables(baseDatosId, componenteId) {
     }
   }, [baseDatosId, componenteId]);
 
-  return { listo, version, error, persistir };
+  // Relee pesos/umbrales del API sin pasar por persistir: lo usa el dialogo de
+  // rubrica, que escribe los pesos por su propio endpoint.
+  const recargar = useCallback(async () => {
+    setError('');
+    try {
+      const filas = await getVariablesMedidas(baseDatosId, componenteId);
+      hidratarAjustes(componenteId, filas);
+      setVersion((actual) => actual + 1);
+    } catch (e) {
+      setError(e.message);
+    }
+  }, [baseDatosId, componenteId]);
+
+  return { listo, version, error, persistir, recargar };
 }

@@ -3,6 +3,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
+import RuleIcon from '@mui/icons-material/Rule';
 import { MODO_PESOS_RELATIVOS, MODO_PORCENTAJE_EXACTO } from '../lib/pesos.js';
 
 export default function PesosToolbar({
@@ -15,6 +16,7 @@ export default function PesosToolbar({
   onGuardar,
   onCambiarModo,
   onRestablecerEquitativo,
+  onPesosPorRubrica,
 }) {
   const esRelativo = modo === MODO_PESOS_RELATIVOS;
 
@@ -74,6 +76,11 @@ export default function PesosToolbar({
             <Button size="small" startIcon={<RestartAltIcon />} onClick={onRestablecerEquitativo}>
               Restablecer a equitativo
             </Button>
+            {onPesosPorRubrica && (
+              <Button size="small" startIcon={<RuleIcon />} onClick={onPesosPorRubrica}>
+                Pesos por rúbrica
+              </Button>
+            )}
             <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={onIniciarEdicion}>
               Editar pesos
             </Button>

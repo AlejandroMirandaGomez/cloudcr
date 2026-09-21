@@ -445,6 +445,63 @@ dashboard. Devuelve el mismo cuerpo que el GET.
 **422** si falta un índice, si un umbral cae fuera de 0–100 o si el rojo no es
 menor que el verde.
 
+### `GET /monitor/rubrica-peso`
+
+Rúbrica para determinar el peso de cada variable dentro de su componente.
+Cuatro preguntas cerradas por variable (escala 1–4): `impacto`,
+`probabilidad`, `tiempo_reaccion` y `cobertura`. El puntaje es
+`impacto × probabilidad + tiempo_reaccion + cobertura` (3–24) y el peso
+sugerido es la parte que ese puntaje representa dentro del componente. Las
+variables sin responder entran con puntaje neutro (8) y se listan en
+`faltantes`. Cálculo en `app/Monitor/RubricaPeso.php`.
+
+| Parámetro | Ejemplo | Descripción |
+|---|---|---|
+| `baseDatosId` | `1` | Opcional; sin él, la primera base activa |
+| `componente` | `procesos` | Obligatorio: `procesos`, `memoria` o `archivos` |
+
+```json
+{ "data": {
+  "base_datos": { "id": 1, "nombre": "ERP - Produccion" },
+  "componente": "procesos", "completo": false, "faltantes": ["p1", "p2"],
+  "variables": [ {
+    "codigo": "p4", "variable": "Sesiones activas", "sentido": "alto_malo",
+    "respuestas": { "impacto": 4, "probabilidad": 3, "tiempo_reaccion": 3, "cobertura": 4 },
+    "puntaje": 19, "peso_actual": 12.5, "peso_sugerido": 25.33,
+    "actualizado_en": "2026-09-20T19:05:11-06:00"
+  } ]
+} }
+```
+
+### `PUT /monitor/rubrica-peso`
+
+Guarda las cuatro respuestas de una variable (lo que persiste la sección
+"Rúbrica para determinar el peso" del detalle de variable). Devuelve la
+rúbrica completa del componente, igual que el GET.
+
+```json
+{
+  "baseDatosId": 1,
+  "variableCodigo": "p4",
+  "respuestas": { "impacto": 4, "probabilidad": 3, "tiempo_reaccion": 3, "cobertura": 4 }
+}
+```
+
+**422** si el código no existe o si alguna respuesta no es un entero entre 1 y 4.
+
+### `POST /monitor/rubrica-peso/aplicar`
+
+Escribe el peso sugerido de cada variable del componente como peso vigente en
+`Monitor_Ajustes_Variable` (conserva los umbrales ya ajustados). Es el botón
+"Aplicar pesos sugeridos" del diálogo "Pesos por rúbrica". Devuelve las
+variables del componente como `GET /monitor/variables`.
+
+```json
+{ "baseDatosId": 1, "componente": "procesos" }
+```
+
+**422** si la rúbrica del componente está incompleta.
+
 ### `GET /monitor/alertas`
 
 Alertas del último snapshot, críticas primero. Se sirven aparte del índice a
@@ -480,7 +537,8 @@ no puntúa ni genera alertas.
 { "data": [ {
   "id": "p6", "codigo": "p6", "componente": "procesos",
   "variable": "Sesiones bloqueadas", "descripcion": "Sesiones que esperan por otra sesión",
-  "fuente": "V$SESSION (blocking_session) / V$WAIT_CHAINS", "unidad": "sesiones",
+  "fuente": "V$SESSION (blocking_session) / V$WAIT_CHAINS",
+  "proceso_padre": "Process Monitor Process (PMON)", "unidad": "sesiones",
   "sentido": "alto_malo", "limite_advertencia": 2, "limite_critico": 5, "peso": 12.5,
   "valor": 0, "puntaje": 100, "color": "verde", "estado": "Verde",
   "justificacion": "…"

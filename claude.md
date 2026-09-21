@@ -96,6 +96,17 @@ desde el umbral verde hacia arriba, rojo desde el umbral rojo hacia abajo,
 amarillo en medio. Por defecto 75 / 60. Solo afecta el color, nunca el valor
 calculado.
 
+**Rubrica de peso por variable.** El peso de cada variable dentro de su
+componente depende de la empresa. En vez de un porcentaje a ojo, "Ver detalle"
+de cada variable trae cuatro preguntas cerradas (impacto, probabilidad, tiempo
+de reaccion, cobertura; escala 1-4) y el peso sugerido sale de
+`impacto x probabilidad + tiempo + cobertura` normalizado dentro del
+componente (`Monitor/RubricaPeso.php`, tabla `Monitor_Rubrica_Peso`,
+migracion `0012`). Misma logica impacto x probabilidad que la evaluacion de
+riesgo de la Fase 1. El boton "Pesos por rubrica" de la tabla del componente
+muestra actual vs sugerido y los aplica sobre `Monitor_Ajustes_Variable`;
+"Editar pesos" manual sigue funcionando por encima.
+
 **Estado "caida".** Cuando el collector no puede leer una instancia avisa por
 `POST /monitor/estado-caida` y el dashboard la marca como caida (negro) en vez de
 mostrar el ultimo ISBD viejo. Una ingesta exitosa limpia el flag. El agente local

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { Box, Button, Chip, Stack, Tooltip, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -6,6 +6,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import Table from '../../../common/components/basic-table/Table.jsx';
 import VariableRowActionsMenu from '../components/VariableRowActionsMenu.jsx';
 import PesosToolbar from '../components/PesosToolbar.jsx';
+import RubricaPesoDialog from '../components/RubricaPesoDialog.jsx';
 import PesoCell from '../components/PesoCell.jsx';
 import EstadoChip, { ESTILO_ESTADO } from '../components/EstadoChip.jsx';
 import IndiceComponenteBanner from '../components/IndiceComponenteBanner.jsx';
@@ -22,6 +23,7 @@ export default function ProcesosDetallePage() {
   const { baseDatosId } = useParams();
   const ajustes = useAjustesVariables(baseDatosId, COMPONENTE_ID);
   const pesos = usePesosEditables(COMPONENTE_ID, ajustes);
+  const [rubricaAbierta, setRubricaAbierta] = useState(false);
   // Valores reales del ultimo snapshot del collector, refrescados solos.
   const { mediciones } = useMediciones(baseDatosId, COMPONENTE_ID);
   const { umbrales } = useUmbralesIndice(baseDatosId);
@@ -29,6 +31,7 @@ export default function ProcesosDetallePage() {
 
   const columns = useMemo(
     () => [
+      { accessorKey: 'procesoPadre', header: 'Proceso Padre', size: 200 },
       {
         id: 'variable',
         header: 'Variable',
@@ -141,7 +144,19 @@ export default function ProcesosDetallePage() {
         onGuardar={pesos.guardar}
         onCambiarModo={pesos.cambiarModo}
         onRestablecerEquitativo={pesos.restablecerEquitativo}
+        onPesosPorRubrica={() => setRubricaAbierta(true)}
       />
+
+      {rubricaAbierta && (
+        <RubricaPesoDialog
+          baseDatosId={baseDatosId}
+          componenteId={COMPONENTE_ID}
+          titulo="Procesos"
+          indicador="IP"
+          onCerrar={() => setRubricaAbierta(false)}
+          onAplicado={ajustes.recargar}
+        />
+      )}
 
       <Table
         columns={columns}

@@ -9,6 +9,7 @@ import { calcularDominio, expandirDominio } from '../lib/escalaUmbrales.js';
 import EscalaUmbrales from '../components/EscalaUmbrales.jsx';
 import { formatearPeso } from '../lib/pesos.js';
 import EstadoChip from '../components/EstadoChip.jsx';
+import RubricaPesoForm from '../components/RubricaPesoForm.jsx';
 
 function Field({ label, value }) {
   if (value === undefined || value === null || value === '') return null;
@@ -76,6 +77,7 @@ export default function VariableDetallePage() {
         <Divider sx={{ my: 3 }} />
 
         <Stack spacing={1.5}>
+          <Field label="Proceso padre" value={variable.procesoPadre} />
           <Field label={componente.etiquetaSecundaria} value={variable[componente.campoSecundario]} />
           <Field label="Fuente" value={variable.fuente} />
           <Field label="Cómo" value={variable.como} />
@@ -134,6 +136,18 @@ export default function VariableDetallePage() {
           Peso
         </Typography>
         <Field label={`Peso dentro de ${componente.indicador}`} value={formatearPeso(variable.peso)} />
+
+        <Divider sx={{ my: 3 }} />
+
+        <Typography variant="subtitle1" sx={{ fontWeight: 700 }} gutterBottom>
+          Rúbrica para determinar el peso
+        </Typography>
+        <RubricaPesoForm
+          baseDatosId={baseDatosId}
+          componenteId={componenteId}
+          variableId={variableId}
+          indicador={componente.indicador}
+        />
       </Paper>
     </Box>
   );
